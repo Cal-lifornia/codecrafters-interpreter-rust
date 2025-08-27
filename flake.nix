@@ -29,16 +29,12 @@
               pkg-config
               clang
               # lld is much faster at linking than the default Rust linker
-              lld
+              # lld
             ];
             buildInputs = with pkgs; [
               # rust toolchain
               # use rust-analyzer-nightly for better type inference
               rust-analyzer
-              cargo-watch
-              cargo-flamegraph
-              gnuplot
-              cargo-xwin
               (rust-bin.stable.latest.default)
               codecrafters-cli
             ];

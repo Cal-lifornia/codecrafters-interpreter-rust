@@ -1,6 +1,8 @@
 use std::env;
 use std::fs;
 
+use codecrafters_interpreter::tokenizer::Token;
+
 fn main() {
     let args: Vec<String> = env::args().collect();
     if args.len() < 3 {
@@ -23,7 +25,20 @@ fn main() {
 
             // Uncomment this block to pass the first stage
             if !file_contents.is_empty() {
-                panic!("Scanner not implemented");
+                match Token::parse(&file_contents) {
+                    Ok(tokens) => {
+                        for token in tokens {
+                            let c = match token.to_char() {
+                                Some(c) => c.to_string(),
+                                None => "".to_string(),
+                            };
+                            println!("{token} {c} null")
+                        }
+                    }
+                    Err(err) => {
+                        panic!("{err}")
+                    }
+                }
             } else {
                 println!("EOF  null"); // Placeholder, replace this line when implementing the scanner
             }
