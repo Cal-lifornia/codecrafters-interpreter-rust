@@ -3,6 +3,12 @@ pub enum Token {
     RightParen,
     LeftBrace,
     RightBrace,
+    Comma,
+    Dot,
+    Minus,
+    Plus,
+    Semicolon,
+    Star,
     EOF,
 }
 
@@ -22,14 +28,20 @@ impl Token {
         }
         Ok(tokens)
     }
-    pub fn to_char(&self) -> Option<char> {
+    pub fn symbol_str(&self) -> &str {
         use Token::*;
         match self {
-            LeftParen => Some('('),
-            RightParen => Some(')'),
-            LeftBrace => Some('{'),
-            RightBrace => Some('}'),
-            EOF => None,
+            LeftParen => "(",
+            RightParen => ")",
+            LeftBrace => "{",
+            RightBrace => "}",
+            Comma => ",",
+            Dot => ".",
+            Minus => "-",
+            Plus => "+",
+            Semicolon => ";",
+            Star => "*",
+            EOF => "",
         }
     }
 }
@@ -42,6 +54,12 @@ impl std::fmt::Display for Token {
             RightParen => "RIGHT_PAREN",
             LeftBrace => "LEFT_BRACE",
             RightBrace => "RIGHT_BRACE",
+            Comma => "COMMA",
+            Dot => "DOT",
+            Minus => "MINUS",
+            Plus => "PLUS",
+            Semicolon => "SEMICOLON",
+            Star => "STAR",
             EOF => "EOF",
         };
         write!(f, "{out}")
@@ -58,6 +76,12 @@ impl TryFrom<char> for Token {
             ')' => Self::RightParen,
             '{' => Self::LeftBrace,
             '}' => Self::RightBrace,
+            ',' => Self::Comma,
+            '.' => Self::Dot,
+            '-' => Self::Minus,
+            '+' => Self::Plus,
+            ';' => Self::Semicolon,
+            '*' => Self::Star,
             _ => return Err(std::io::Error::new(ErrorKind::InvalidInput, "invalid char")),
         };
         Ok(result)

@@ -28,11 +28,7 @@ fn main() {
                 match Token::parse(&file_contents) {
                     Ok(tokens) => {
                         for token in tokens {
-                            let c = match token.to_char() {
-                                Some(c) => c.to_string(),
-                                None => "".to_string(),
-                            };
-                            println!("{token} {c} null")
+                            println!("{token} {} null", token.symbol_str())
                         }
                     }
                     Err(err) => {
