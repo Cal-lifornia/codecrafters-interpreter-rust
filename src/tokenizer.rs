@@ -1,6 +1,8 @@
 pub enum Token {
     LeftParen,
     RightParen,
+    LeftBrace,
+    RightBrace,
     EOF,
 }
 
@@ -25,6 +27,8 @@ impl Token {
         match self {
             LeftParen => Some('('),
             RightParen => Some(')'),
+            LeftBrace => Some('{'),
+            RightBrace => Some('}'),
             EOF => None,
         }
     }
@@ -36,6 +40,8 @@ impl std::fmt::Display for Token {
         let out = match self {
             LeftParen => "LEFT_PAREN",
             RightParen => "RIGHT_PAREN",
+            LeftBrace => "LEFT_BRACE",
+            RightBrace => "RIGHT_BRACE",
             EOF => "EOF",
         };
         write!(f, "{out}")
@@ -50,6 +56,8 @@ impl TryFrom<char> for Token {
         let result = match value {
             '(' => Self::LeftParen,
             ')' => Self::RightParen,
+            '{' => Self::LeftBrace,
+            '}' => Self::RightBrace,
             _ => return Err(std::io::Error::new(ErrorKind::InvalidInput, "invalid char")),
         };
         Ok(result)
