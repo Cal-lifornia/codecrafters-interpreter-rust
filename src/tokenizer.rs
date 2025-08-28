@@ -20,63 +20,61 @@ pub enum Token {
     LessEqual,
     Greater,
     GreaterEqual,
+    Slash,
     EOF,
 }
 
 impl Token {
     pub fn parse(input: &str) -> (Vec<Token>, Vec<std::io::Error>) {
         use Token::*;
-        let mut chars = input.chars();
+        let chars = input.chars();
         let mut tokens = vec![];
         let mut errs = vec![];
         let mut last_token = Self::EOF;
 
-        loop {
-            match chars.next() {
-                Some(c) => {
-                    let token = match c {
-                        '(' => LeftParen,
-                        ')' => RightParen,
-                        '{' => LeftBrace,
-                        '}' => RightBrace,
-                        ',' => Comma,
-                        '.' => Dot,
-                        '-' => Minus,
-                        '+' => Plus,
-                        ';' => Semicolon,
-                        '*' => Star,
-                        '=' => Equal,
-                        '!' => Bang,
-                        '<' => Less,
-                        '>' => Greater,
-                        _ => {
-                            errs.push(std::io::Error::new(
-                                ErrorKind::InvalidInput,
-                                format!("Unexpected character: {c}"),
-                            ));
-                            last_token = EOF;
-                            continue;
-                        }
-                    };
-                    if token == Equal && matches!(last_token, Equal | Bang | Less | Greater) {
-                        let _ = tokens.pop();
-                        match last_token {
-                            Bang => tokens.push(BangEqual),
-                            Equal => tokens.push(EqualEqual),
-                            Less => tokens.push(LessEqual),
-                            Greater => tokens.push(GreaterEqual),
-                            _ => unreachable!(),
-                        }
-                        last_token = EOF;
-                    } else {
-                        last_token = token;
-                        tokens.push(token);
-                    }
+        for c in chars {
+            let current_token = match c {
+                '(' => LeftParen,
+                ')' => RightParen,
+                '{' => LeftBrace,
+                '}' => RightBrace,
+                ',' => Comma,
+                '.' => Dot,
+                '-' => Minus,
+                '+' => Plus,
+                ';' => Semicolon,
+                '*' => Star,
+                '=' => Equal,
+                '!' => Bang,
+                '<' => Less,
+                '>' => Greater,
+                '/' => Slash,
+                _ => {
+                    errs.push(std::io::Error::new(
+                        ErrorKind::InvalidInput,
+                        format!("Unexpected character: {c}"),
+                    ));
+                    last_token = EOF;
+                    continue;
                 }
-                None => {
-                    tokens.push(EOF);
-                    break;
+            };
+            if last_token == Slash && current_token == Slash {
+                let _ = tokens.pop();
+                break;
+            } else if matches!(last_token, Equal | Bang | Less | Greater) && current_token == Equal
+            {
+                let _ = tokens.pop();
+                match last_token {
+                    Bang => tokens.push(BangEqual),
+                    Equal => tokens.push(EqualEqual),
+                    Less => tokens.push(LessEqual),
+                    Greater => tokens.push(GreaterEqual),
+                    _ => unreachable!(),
                 }
+                last_token = EOF;
+            } else {
+                last_token = current_token;
+                tokens.push(current_token);
             }
         }
         (tokens, errs)
@@ -102,6 +100,7 @@ impl Token {
             LessEqual => "<=",
             Greater => ">",
             GreaterEqual => ">=",
+            Slash => "/",
             EOF => "",
         }
     }
@@ -129,6 +128,7 @@ impl std::fmt::Display for Token {
             LessEqual => "LESS_EQUAL",
             Greater => "GREATER",
             GreaterEqual => "GREATER_EQUAL",
+            Slash => "SLASH",
             EOF => "EOF",
         };
         write!(f, "{out}")

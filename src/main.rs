@@ -37,6 +37,7 @@ fn main() {
                         .iter()
                         .for_each(|token| println!("{token} {} null", token.symbol_str()))
                 });
+                println!("EOF  null");
                 if err_present {
                     exit(65)
                 }
