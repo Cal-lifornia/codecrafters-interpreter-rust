@@ -1,5 +1,6 @@
-use std::collections::VecDeque;
+use std::io::ErrorKind;
 
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum Token {
     LeftParen,
     RightParen,
@@ -11,23 +12,54 @@ pub enum Token {
     Plus,
     Semicolon,
     Star,
+    Equal,
+    EqualEqual,
     EOF,
 }
 
 impl Token {
     pub fn parse(input: &str) -> (Vec<Token>, Vec<std::io::Error>) {
+        use Token::*;
         let mut chars = input.chars();
         let mut tokens = vec![];
         let mut errs = vec![];
+        let mut last_token = Self::EOF;
 
         loop {
             match chars.next() {
-                Some(c) => match Token::try_from(c) {
-                    Ok(token) => tokens.push(token),
-                    Err(err) => errs.push(err),
-                },
+                Some(c) => {
+                    let token = match c {
+                        '(' => LeftParen,
+                        ')' => RightParen,
+                        '{' => LeftBrace,
+                        '}' => RightBrace,
+                        ',' => Comma,
+                        '.' => Dot,
+                        '-' => Minus,
+                        '+' => Plus,
+                        ';' => Semicolon,
+                        '*' => Star,
+                        '=' => Equal,
+                        _ => {
+                            errs.push(std::io::Error::new(
+                                ErrorKind::InvalidInput,
+                                format!("Unexpected character: {c}"),
+                            ));
+                            last_token = EOF;
+                            continue;
+                        }
+                    };
+                    if last_token == Equal && token == Equal {
+                        let _ = tokens.pop();
+                        tokens.push(EqualEqual);
+                        last_token = EOF;
+                    } else {
+                        last_token = token;
+                        tokens.push(token);
+                    }
+                }
                 None => {
-                    tokens.push(Token::EOF);
+                    tokens.push(EOF);
                     break;
                 }
             }
@@ -47,6 +79,8 @@ impl Token {
             Plus => "+",
             Semicolon => ";",
             Star => "*",
+            Equal => "=",
+            EqualEqual => "==",
             EOF => "",
         }
     }
@@ -66,35 +100,10 @@ impl std::fmt::Display for Token {
             Plus => "PLUS",
             Semicolon => "SEMICOLON",
             Star => "STAR",
+            Equal => "EQUAL",
+            EqualEqual => "EQUAL_EQUAL",
             EOF => "EOF",
         };
         write!(f, "{out}")
-    }
-}
-
-impl TryFrom<char> for Token {
-    type Error = std::io::Error;
-
-    fn try_from(value: char) -> Result<Self, Self::Error> {
-        use std::io::ErrorKind;
-        let result = match value {
-            '(' => Self::LeftParen,
-            ')' => Self::RightParen,
-            '{' => Self::LeftBrace,
-            '}' => Self::RightBrace,
-            ',' => Self::Comma,
-            '.' => Self::Dot,
-            '-' => Self::Minus,
-            '+' => Self::Plus,
-            ';' => Self::Semicolon,
-            '*' => Self::Star,
-            _ => {
-                return Err(std::io::Error::new(
-                    ErrorKind::InvalidInput,
-                    format!("Unexpected character: {value}"),
-                ))
-            }
-        };
-        Ok(result)
     }
 }
