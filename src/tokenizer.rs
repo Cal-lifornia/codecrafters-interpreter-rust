@@ -1,6 +1,6 @@
 use std::io::ErrorKind;
 
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Token {
     LeftParen,
     RightParen,
@@ -22,12 +22,15 @@ pub enum Token {
     GreaterEqual,
     Slash,
     StringLiteral(String),
+    Number(String, f64),
     EOF,
 }
 
+#[derive(PartialEq, Eq)]
 enum State {
     Delimiter,
     Quotes,
+    Num,
 }
 
 impl Token {
@@ -39,9 +42,38 @@ impl Token {
         let mut errs = vec![];
         let mut last_token = Self::EOF;
         let mut current_state = State::Delimiter;
-        #[allow(clippy::while_let_loop)]
+
         loop {
             let c = chars.next();
+            if current_state == State::Num {
+                if let Some(ch) = c {
+                    if ch.is_ascii_digit() || ch == '.' {
+                        word.push(ch);
+                        continue;
+                    } else {
+                        match word.parse::<f64>() {
+                            Ok(num) => {
+                                tokens.push(Number(std::mem::take(&mut word), num));
+                            }
+                            Err(err) => {
+                                errs.push(std::io::Error::new(ErrorKind::InvalidInput, err));
+                            }
+                        }
+                        current_state = State::Delimiter;
+                    }
+                } else {
+                    match word.parse::<f64>() {
+                        Ok(num) => {
+                            tokens.push(Number(std::mem::take(&mut word), num));
+                        }
+                        Err(err) => {
+                            errs.push(std::io::Error::new(ErrorKind::InvalidInput, err));
+                        }
+                    }
+                    break;
+                }
+            }
+
             match current_state {
                 State::Delimiter => {
                     let c = match c {
@@ -73,11 +105,16 @@ impl Token {
                             continue;
                         }
                         _ => {
-                            errs.push(std::io::Error::new(
-                                ErrorKind::InvalidInput,
-                                format!("Unexpected character: {c}"),
-                            ));
-                            last_token = EOF;
+                            if c.is_ascii_digit() {
+                                word.push(c);
+                                current_state = State::Num;
+                            } else {
+                                errs.push(std::io::Error::new(
+                                    ErrorKind::InvalidInput,
+                                    format!("Unexpected character: {c}"),
+                                ));
+                                last_token = EOF;
+                            }
                             continue;
                         }
                     };
@@ -116,6 +153,7 @@ impl Token {
                         break;
                     }
                 },
+                _ => unreachable!(),
             }
         }
 
@@ -144,16 +182,18 @@ impl Token {
             GreaterEqual => ">=",
             Slash => "/",
             StringLiteral(ident) => return format!("\"{ident}\""),
+            Number(lex, _) => lex,
             EOF => "",
         };
         out.to_string()
     }
 
-    pub fn literal(&self) -> &str {
-        if let Self::StringLiteral(value) = self {
-            value
-        } else {
-            "null"
+    pub fn literal(&self) -> String {
+        use Token::*;
+        match self {
+            StringLiteral(val) => val.to_string(),
+            Number(_, val) => format!("{val:?}"),
+            _ => "null".to_string(),
         }
     }
 
@@ -180,6 +220,7 @@ impl Token {
             GreaterEqual => "GREATER_EQUAL",
             Slash => "SLASH",
             StringLiteral(_) => "STRING",
+            Number(_, _) => "NUMBER",
             EOF => "EOF",
         }
     }
