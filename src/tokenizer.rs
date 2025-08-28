@@ -52,7 +52,7 @@ impl TryFrom<char> for SingleCharToken {
             _ => {
                 return Err(std::io::Error::new(
                     ErrorKind::InvalidInput,
-                    format!("Unexpected character {value}"),
+                    format!("Unexpected character: {value}"),
                 ))
             }
         };
@@ -188,18 +188,20 @@ impl Token {
     }
     pub fn lexeme(&self) -> String {
         use Token::*;
+        use SingleCharToken::*;
+        use MultiCharToken::*;
         let out = match self {
-            LeftParen => "(",
-            RightParen => ")",
-            LeftBrace => "{",
-            RightBrace => "}",
-            Comma => ",",
-            Dot => ".",
-            Minus => "-",
-            Plus => "+",
-            Semicolon => ";",
-            Star => "*",
-            Equal => "=",
+            SingleChar(LeftParen) => "(",
+            SingleChar(RightParen) => ")",
+            SingleChar(LeftBrace )=> "{",
+            SingleChar(RightBrace) => "}",
+            SingleChar(Comma) => ",",
+            SingleChar(Dot) => ".",
+            SingleChar(Minus) => "-",
+            SingleChar(Plus) => "+",
+            SingleChar(Semicolon) => ";",
+            SingleChar(Star) => "*",
+            SingleChar(Equal) => "=",
             EqualEqual => "==",
             Bang => "!",
             BangEqual => "!=",
