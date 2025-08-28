@@ -14,6 +14,8 @@ pub enum Token {
     Star,
     Equal,
     EqualEqual,
+    Bang,
+    BangEqual,
     EOF,
 }
 
@@ -40,6 +42,7 @@ impl Token {
                         ';' => Semicolon,
                         '*' => Star,
                         '=' => Equal,
+                        '!' => Bang,
                         _ => {
                             errs.push(std::io::Error::new(
                                 ErrorKind::InvalidInput,
@@ -49,9 +52,13 @@ impl Token {
                             continue;
                         }
                     };
-                    if last_token == Equal && token == Equal {
+                    if token == Equal && matches!(last_token, Equal | Bang) {
                         let _ = tokens.pop();
-                        tokens.push(EqualEqual);
+                        match last_token {
+                            Bang => tokens.push(BangEqual),
+                            Equal => tokens.push(EqualEqual),
+                            _ => unreachable!(),
+                        }
                         last_token = EOF;
                     } else {
                         last_token = token;
@@ -81,6 +88,8 @@ impl Token {
             Star => "*",
             Equal => "=",
             EqualEqual => "==",
+            Bang => "!",
+            BangEqual => "!=",
             EOF => "",
         }
     }
@@ -102,6 +111,8 @@ impl std::fmt::Display for Token {
             Star => "STAR",
             Equal => "EQUAL",
             EqualEqual => "EQUAL_EQUAL",
+            Bang => "BANG",
+            BangEqual => "BANG_EQUAL",
             EOF => "EOF",
         };
         write!(f, "{out}")
