@@ -20,7 +20,6 @@ fn main() {
                 eprintln!("Failed to read file {}", filename);
                 String::new()
             });
-
             // Uncomment this block to pass the first stage
             if !file_contents.is_empty() {
                 let mut err_present = false;

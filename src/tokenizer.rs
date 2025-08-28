@@ -49,6 +49,10 @@ impl Token {
                 '<' => Less,
                 '>' => Greater,
                 '/' => Slash,
+                '\t' | ' ' => {
+                    last_token = EOF;
+                    continue;
+                }
                 _ => {
                     errs.push(std::io::Error::new(
                         ErrorKind::InvalidInput,
