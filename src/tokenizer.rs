@@ -2,6 +2,16 @@ use std::io::ErrorKind;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Token {
+    SingleChar(SingleCharToken),
+    MultiChar(MultiCharToken),
+    StringLiteral(String),
+    Number(String, f64),
+    Identifier(String),
+    EOF,
+}
+
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub enum SingleCharToken {
     LeftParen,
     RightParen,
     LeftBrace,
@@ -13,17 +23,49 @@ pub enum Token {
     Semicolon,
     Star,
     Equal,
-    EqualEqual,
     Bang,
-    BangEqual,
-    Less,
-    LessEqual,
-    Greater,
-    GreaterEqual,
     Slash,
-    StringLiteral(String),
-    Number(String, f64),
-    EOF,
+    Less,
+    Greater,
+}
+
+impl TryFrom<char> for SingleCharToken {
+    type Error = std::io::Error;
+    fn try_from(value: char) -> Result<Self, Self::Error> {
+        use SingleCharToken::*;
+        let out = match value {
+            '(' => LeftParen,
+            ')' => RightParen,
+            '{' => LeftBrace,
+            '}' => RightBrace,
+            ',' => Comma,
+            '.' => Dot,
+            '-' => Minus,
+            '+' => Plus,
+            ';' => Semicolon,
+            '*' => Star,
+            '=' => Equal,
+            '!' => Bang,
+            '<' => Less,
+            '>' => Greater,
+            '/' => Slash,
+            _ => {
+                return Err(std::io::Error::new(
+                    ErrorKind::InvalidInput,
+                    format!("Unexpected character {value}"),
+                ))
+            }
+        };
+        Ok(out)
+    }
+}
+
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub enum MultiCharToken {
+    EqualEqual,
+    BangEqual,
+    LessEqual,
+    GreaterEqual,
 }
 
 #[derive(PartialEq, Eq)]
@@ -31,6 +73,7 @@ enum State {
     Delimiter,
     Quotes,
     Num,
+    Unquoted,
 }
 
 impl Token {
@@ -81,21 +124,6 @@ impl Token {
                         None => break,
                     };
                     let current_token = match c {
-                        '(' => LeftParen,
-                        ')' => RightParen,
-                        '{' => LeftBrace,
-                        '}' => RightBrace,
-                        ',' => Comma,
-                        '.' => Dot,
-                        '-' => Minus,
-                        '+' => Plus,
-                        ';' => Semicolon,
-                        '*' => Star,
-                        '=' => Equal,
-                        '!' => Bang,
-                        '<' => Less,
-                        '>' => Greater,
-                        '/' => Slash,
                         '"' => {
                             current_state = State::Quotes;
                             continue;
@@ -105,15 +133,13 @@ impl Token {
                             continue;
                         }
                         _ => {
+                            if let Ok()
                             if c.is_ascii_digit() {
                                 word.push(c);
                                 current_state = State::Num;
                             } else {
-                                errs.push(std::io::Error::new(
-                                    ErrorKind::InvalidInput,
-                                    format!("Unexpected character: {c}"),
-                                ));
-                                last_token = EOF;
+                                word.push(c);
+                                current_state = State::Unquoted;
                             }
                             continue;
                         }
@@ -153,7 +179,8 @@ impl Token {
                         break;
                     }
                 },
-                _ => unreachable!(),
+                State::Unquoted => {}
+                State::Num => unreachable!(),
             }
         }
 
@@ -183,6 +210,7 @@ impl Token {
             Slash => "/",
             StringLiteral(ident) => return format!("\"{ident}\""),
             Number(lex, _) => lex,
+            Identifier(ident) => ident,
             EOF => "",
         };
         out.to_string()
@@ -221,6 +249,7 @@ impl Token {
             Slash => "SLASH",
             StringLiteral(_) => "STRING",
             Number(_, _) => "NUMBER",
+            Identifier(_) => "IDENTIFIER",
             EOF => "EOF",
         }
     }
