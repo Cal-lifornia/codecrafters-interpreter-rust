@@ -16,6 +16,10 @@ pub enum Token {
     EqualEqual,
     Bang,
     BangEqual,
+    Less,
+    LessEqual,
+    Greater,
+    GreaterEqual,
     EOF,
 }
 
@@ -43,6 +47,8 @@ impl Token {
                         '*' => Star,
                         '=' => Equal,
                         '!' => Bang,
+                        '<' => Less,
+                        '>' => Greater,
                         _ => {
                             errs.push(std::io::Error::new(
                                 ErrorKind::InvalidInput,
@@ -52,11 +58,13 @@ impl Token {
                             continue;
                         }
                     };
-                    if token == Equal && matches!(last_token, Equal | Bang) {
+                    if token == Equal && matches!(last_token, Equal | Bang | Less | Greater) {
                         let _ = tokens.pop();
                         match last_token {
                             Bang => tokens.push(BangEqual),
                             Equal => tokens.push(EqualEqual),
+                            Less => tokens.push(LessEqual),
+                            Greater => tokens.push(GreaterEqual),
                             _ => unreachable!(),
                         }
                         last_token = EOF;
@@ -90,6 +98,10 @@ impl Token {
             EqualEqual => "==",
             Bang => "!",
             BangEqual => "!=",
+            Less => "<",
+            LessEqual => "<=",
+            Greater => ">",
+            GreaterEqual => ">=",
             EOF => "",
         }
     }
@@ -113,6 +125,10 @@ impl std::fmt::Display for Token {
             EqualEqual => "EQUAL_EQUAL",
             Bang => "BANG",
             BangEqual => "BANG_EQUAL",
+            Less => "LESS",
+            LessEqual => "LESS_EQUAL",
+            Greater => "GREATER",
+            GreaterEqual => "GREATER_EQUAL",
             EOF => "EOF",
         };
         write!(f, "{out}")
