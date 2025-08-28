@@ -1,3 +1,5 @@
+use std::collections::VecDeque;
+
 pub enum Token {
     LeftParen,
     RightParen,
@@ -13,20 +15,24 @@ pub enum Token {
 }
 
 impl Token {
-    pub fn parse(input: &str) -> std::io::Result<Vec<Self>> {
+    pub fn parse(input: &str) -> (Vec<Token>, Vec<std::io::Error>) {
         let mut chars = input.chars();
-        let mut tokens: Vec<Token> = vec![];
+        let mut tokens = vec![];
+        let mut errs = vec![];
 
         loop {
             match chars.next() {
-                Some(c) => tokens.push(Token::try_from(c)?),
+                Some(c) => match Token::try_from(c) {
+                    Ok(token) => tokens.push(token),
+                    Err(err) => errs.push(err),
+                },
                 None => {
                     tokens.push(Token::EOF);
                     break;
                 }
             }
         }
-        Ok(tokens)
+        (tokens, errs)
     }
     pub fn symbol_str(&self) -> &str {
         use Token::*;
@@ -82,7 +88,12 @@ impl TryFrom<char> for Token {
             '+' => Self::Plus,
             ';' => Self::Semicolon,
             '*' => Self::Star,
-            _ => return Err(std::io::Error::new(ErrorKind::InvalidInput, "invalid char")),
+            _ => {
+                return Err(std::io::Error::new(
+                    ErrorKind::InvalidInput,
+                    format!("Unexpected character: {value}"),
+                ))
+            }
         };
         Ok(result)
     }

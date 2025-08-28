@@ -1,5 +1,6 @@
 use std::env;
 use std::fs;
+use std::process::exit;
 
 use codecrafters_interpreter::tokenizer::Token;
 
@@ -15,9 +16,6 @@ fn main() {
 
     match command.as_str() {
         "tokenize" => {
-            // You can use print statements as follows for debugging, they'll be visible when running tests.
-            eprintln!("Logs from your program will appear here!");
-
             let file_contents = fs::read_to_string(filename).unwrap_or_else(|_| {
                 eprintln!("Failed to read file {}", filename);
                 String::new()
@@ -25,15 +23,22 @@ fn main() {
 
             // Uncomment this block to pass the first stage
             if !file_contents.is_empty() {
-                match Token::parse(&file_contents) {
-                    Ok(tokens) => {
-                        for token in tokens {
-                            println!("{token} {} null", token.symbol_str())
-                        }
+                let mut err_present = false;
+                file_contents.lines().enumerate().for_each(|(idx, line)| {
+                    let (tokens, errs) = Token::parse(line);
+                    if !errs.is_empty() {
+                        err_present = true;
+                        errs.iter().for_each(|err| {
+                            let line_number = idx + 1;
+                            eprintln!("[line {line_number}] Error: {err}");
+                        })
                     }
-                    Err(err) => {
-                        panic!("{err}")
-                    }
+                    tokens
+                        .iter()
+                        .for_each(|token| println!("{token} {} null", token.symbol_str()))
+                });
+                if err_present {
+                    exit(65)
                 }
             } else {
                 println!("EOF  null"); // Placeholder, replace this line when implementing the scanner
