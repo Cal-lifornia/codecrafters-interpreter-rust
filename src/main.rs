@@ -32,11 +32,9 @@ fn main() {
                             eprintln!("[line {line_number}] Error: {err}");
                         })
                     }
-                    tokens
-                        .iter()
-                        .for_each(|token| println!("{token} {} null", token.symbol_str()))
+                    tokens.iter().for_each(|token| println!("{token}"))
                 });
-                println!("EOF  null");
+                println!("{}", Token::EOF);
                 if err_present {
                     exit(65)
                 }
