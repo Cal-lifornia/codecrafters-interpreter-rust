@@ -2,7 +2,8 @@ use std::env;
 use std::fs;
 use std::process::exit;
 
-use codecrafters_interpreter::tokenizer::Token;
+use codecrafters_interpreter::ast::Expression;
+use codecrafters_interpreter::tokens::Token;
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -40,6 +41,29 @@ fn main() {
                 }
             } else {
                 println!("EOF  null"); // Placeholder, replace this line when implementing the scanner
+            }
+        }
+        "parse" => {
+            let file_contents = fs::read_to_string(filename).unwrap_or_else(|_| {
+                eprintln!("Failed to read file {}", filename);
+                String::new()
+            });
+
+            let mut all_tokens = vec![];
+
+            if !file_contents.is_empty() {
+                file_contents.lines().for_each(|line| {
+                    let (mut tokens, errs) = Token::parse(line);
+                    if !errs.is_empty() {
+                        panic!("no errs")
+                    } else {
+                        all_tokens.append(&mut tokens);
+                    }
+                });
+                let exprs = Expression::parse_tokens(&all_tokens);
+                for expr in exprs {
+                    println!("{expr}");
+                }
             }
         }
         _ => {

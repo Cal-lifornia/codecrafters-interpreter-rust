@@ -1,6 +1,6 @@
 use std::io::ErrorKind;
 
-use crate::tokenizer::TokenDisplay;
+use crate::tokens::TokenDisplay;
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum SymbolToken {

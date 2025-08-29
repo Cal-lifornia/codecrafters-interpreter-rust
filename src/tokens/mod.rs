@@ -6,7 +6,7 @@ mod symbols;
 pub use reserved_words::*;
 pub use symbols::*;
 
-trait TokenDisplay {
+pub trait TokenDisplay {
     fn lexeme(&self) -> String;
     fn literal(&self) -> String;
     fn type_str(&self) -> &str;
