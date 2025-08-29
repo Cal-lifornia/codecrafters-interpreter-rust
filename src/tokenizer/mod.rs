@@ -100,6 +100,7 @@ impl Token {
                                 } else {
                                     errs.push(err);
                                 }
+                                last_token = EOF;
                                 continue;
                             }
                         },
