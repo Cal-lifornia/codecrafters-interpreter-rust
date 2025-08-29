@@ -1,89 +1,25 @@
 use std::io::ErrorKind;
 
+mod reserved_words;
+mod symbols;
+
+pub use reserved_words::*;
+pub use symbols::*;
+
+trait TokenDisplay {
+    fn lexeme(&self) -> String;
+    fn literal(&self) -> String;
+    fn type_str(&self) -> &str;
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum Token {
-    SingleChar(SingleCharToken),
-    MultiChar(MultiCharToken),
+    Symbol(SymbolToken),
     StringLiteral(String),
     Number(String, f64),
     Identifier(String),
+    Reserved(ReservedWord),
     EOF,
-}
-
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub enum SingleCharToken {
-    LeftParen,
-    RightParen,
-    LeftBrace,
-    RightBrace,
-    Comma,
-    Dot,
-    Minus,
-    Plus,
-    Semicolon,
-    Star,
-    Equal,
-    Bang,
-    Slash,
-    Less,
-    Greater,
-}
-
-impl TryFrom<char> for SingleCharToken {
-    type Error = std::io::Error;
-    fn try_from(value: char) -> Result<Self, Self::Error> {
-        use SingleCharToken::*;
-        let out = match value {
-            '(' => LeftParen,
-            ')' => RightParen,
-            '{' => LeftBrace,
-            '}' => RightBrace,
-            ',' => Comma,
-            '.' => Dot,
-            '-' => Minus,
-            '+' => Plus,
-            ';' => Semicolon,
-            '*' => Star,
-            '=' => Equal,
-            '!' => Bang,
-            '<' => Less,
-            '>' => Greater,
-            '/' => Slash,
-            _ => {
-                return Err(std::io::Error::new(
-                    ErrorKind::InvalidInput,
-                    format!("Unexpected character: {value}"),
-                ))
-            }
-        };
-        Ok(out)
-    }
-}
-
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub enum MultiCharToken {
-    EqualEqual,
-    BangEqual,
-    LessEqual,
-    GreaterEqual,
-}
-
-impl TryFrom<String> for MultiCharToken {
-    type Error = std::io::Error;
-    fn try_from(value: String) -> Result<Self, Self::Error> {
-        use std::io::ErrorKind;
-        use MultiCharToken::*;
-        match value.as_str() {
-            "==" => Ok(EqualEqual),
-            "!=" => Ok(BangEqual),
-            "<=" => Ok(LessEqual),
-            ">=" => Ok(GreaterEqual),
-            _ => Err(std::io::Error::new(
-                ErrorKind::InvalidInput,
-                format!("Unexpected char: {value}"),
-            )),
-        }
-    }
 }
 
 #[derive(PartialEq, Eq)]
@@ -96,7 +32,7 @@ enum State {
 
 impl Token {
     pub fn parse(input: &str) -> (Vec<Token>, Vec<std::io::Error>) {
-        use SingleCharToken::*;
+        use SymbolToken::*;
         use Token::*;
         let mut chars = input.chars();
         let mut word = String::new();
@@ -147,12 +83,13 @@ impl Token {
                             current_state = State::Quotes;
                             continue;
                         }
+                        // Ignore tabs or whitespace
                         '\t' | ' ' => {
                             last_token = EOF;
                             continue;
                         }
-                        _ => match SingleCharToken::try_from(c) {
-                            Ok(token) => SingleChar(token),
+                        _ => match SymbolToken::try_from(c) {
+                            Ok(token) => Symbol(token),
                             Err(err) => {
                                 if c.is_ascii_digit() {
                                     word.push(c);
@@ -167,35 +104,34 @@ impl Token {
                             }
                         },
                     };
-                    if last_token == SingleChar(SingleCharToken::Slash)
-                        && current_token == SingleChar(SingleCharToken::Slash)
-                    {
+
+                    // Check for comments
+                    if last_token == Symbol(Slash) && current_token == Symbol(Slash) {
                         let _ = tokens.pop();
                         break;
+                    // Check for comparison operators
                     } else if matches!(
                         last_token,
-                        SingleChar(Equal)
-                            | SingleChar(Bang)
-                            | SingleChar(Less)
-                            | SingleChar(Greater)
-                    ) && current_token == SingleChar(Equal)
+                        Symbol(Equal) | Symbol(Bang) | Symbol(Less) | Symbol(Greater)
+                    ) && current_token == Symbol(Equal)
                     {
                         let _ = tokens.pop();
                         match last_token {
-                            SingleChar(Bang) => tokens.push(MultiChar(MultiCharToken::BangEqual)),
-                            SingleChar(Equal) => tokens.push(MultiChar(MultiCharToken::EqualEqual)),
-                            SingleChar(Less) => tokens.push(MultiChar(MultiCharToken::LessEqual)),
-                            SingleChar(Greater) => {
-                                tokens.push(MultiChar(MultiCharToken::GreaterEqual))
-                            }
+                            Symbol(Bang) => tokens.push(Symbol(BangEqual)),
+                            Symbol(Equal) => tokens.push(Symbol(EqualEqual)),
+                            Symbol(Less) => tokens.push(Symbol(LessEqual)),
+                            Symbol(Greater) => tokens.push(Symbol(GreaterEqual)),
                             _ => unreachable!(),
                         }
                         last_token = EOF;
+                    // Normal token
                     } else {
                         last_token = current_token.clone();
                         tokens.push(current_token);
                     }
                 }
+
+                // Capturing any that is a string
                 State::Quotes => match c {
                     Some('"') => {
                         let token = StringLiteral(std::mem::take(&mut word));
@@ -211,24 +147,42 @@ impl Token {
                         break;
                     }
                 },
+
+                // Unquoted, so likely an identifier or reserved word
                 State::Unquoted => match c {
                     Some(' ') => {
-                        tokens.push(Identifier(std::mem::take(&mut word)));
+                        if let Some(reserved) = ReservedWord::get(&word) {
+                            word.clear();
+                            tokens.push(Reserved(reserved));
+                        } else {
+                            tokens.push(Identifier(std::mem::take(&mut word)));
+                        }
                         current_state = State::Delimiter;
                     }
                     Some(ch) => {
-                        if let Ok(token) = SingleCharToken::try_from(ch) {
-                            let token = SingleChar(token);
+                        if let Ok(token) = SymbolToken::try_from(ch) {
+                            let token = Symbol(token);
+                            if let Some(reserved) = ReservedWord::get(&word) {
+                                word.clear();
+                                tokens.push(Reserved(reserved));
+                            } else {
+                                tokens.push(Identifier(std::mem::take(&mut word)));
+                            }
                             last_token = token.clone();
-                            tokens.push(Identifier(std::mem::take(&mut word)));
                             tokens.push(token);
                             current_state = State::Delimiter;
                         } else if ch.is_alphanumeric() || ch == '_' {
                             word.push(ch);
+                            continue;
                         }
                     }
                     None => {
-                        tokens.push(Identifier(std::mem::take(&mut word)));
+                        if let Some(reserved) = ReservedWord::get(&word) {
+                            word.clear();
+                            tokens.push(Reserved(reserved));
+                        } else {
+                            tokens.push(Identifier(std::mem::take(&mut word)));
+                        }
                         break;
                     }
                 },
@@ -238,39 +192,22 @@ impl Token {
 
         (tokens, errs)
     }
-    pub fn lexeme(&self) -> String {
-        use MultiCharToken::*;
-        use SingleCharToken::*;
+}
+
+impl TokenDisplay for Token {
+    fn lexeme(&self) -> String {
         use Token::*;
-        let out = match self {
-            SingleChar(LeftParen) => "(",
-            SingleChar(RightParen) => ")",
-            SingleChar(LeftBrace) => "{",
-            SingleChar(RightBrace) => "}",
-            SingleChar(Comma) => ",",
-            SingleChar(Dot) => ".",
-            SingleChar(Minus) => "-",
-            SingleChar(Plus) => "+",
-            SingleChar(Semicolon) => ";",
-            SingleChar(Star) => "*",
-            SingleChar(Equal) => "=",
-            SingleChar(Bang) => "!",
-            SingleChar(Less) => "<",
-            SingleChar(Greater) => ">",
-            SingleChar(Slash) => "/",
-            MultiChar(EqualEqual) => "==",
-            MultiChar(BangEqual) => "!=",
-            MultiChar(GreaterEqual) => ">=",
-            MultiChar(LessEqual) => "<=",
-            StringLiteral(ident) => return format!("\"{ident}\""),
-            Number(lex, _) => lex,
-            Identifier(ident) => ident,
-            EOF => "",
-        };
-        out.to_string()
+        match self {
+            Symbol(symbol) => symbol.lexeme(),
+            StringLiteral(ident) => format!("\"{ident}\""),
+            Number(lex, _) => lex.to_string(),
+            Identifier(ident) => ident.to_string(),
+            Reserved(word) => word.lexeme(),
+            EOF => "".to_string(),
+        }
     }
 
-    pub fn literal(&self) -> String {
+    fn literal(&self) -> String {
         use Token::*;
         match self {
             StringLiteral(val) => val.to_string(),
@@ -279,33 +216,14 @@ impl Token {
         }
     }
 
-    pub fn type_str(&self) -> &str {
-        use MultiCharToken::*;
-        use SingleCharToken::*;
+    fn type_str(&self) -> &str {
         use Token::*;
         match self {
-            SingleChar(LeftParen) => "LEFT_PAREN",
-            SingleChar(RightParen) => "RIGHT_PAREN",
-            SingleChar(LeftBrace) => "LEFT_BRACE",
-            SingleChar(RightBrace) => "RIGHT_BRACE",
-            SingleChar(Comma) => "COMMA",
-            SingleChar(Dot) => "DOT",
-            SingleChar(Minus) => "MINUS",
-            SingleChar(Plus) => "PLUS",
-            SingleChar(Semicolon) => "SEMICOLON",
-            SingleChar(Star) => "STAR",
-            SingleChar(Equal) => "EQUAL",
-            SingleChar(Bang) => "BANG",
-            SingleChar(Less) => "LESS",
-            SingleChar(Greater) => "GREATER",
-            SingleChar(Slash) => "SLASH",
-            MultiChar(EqualEqual) => "EQUAL_EQUAL",
-            MultiChar(BangEqual) => "BANG_EQUAL",
-            MultiChar(LessEqual) => "LESS_EQUAL",
-            MultiChar(GreaterEqual) => "GREATER_EQUAL",
+            Symbol(symbol) => symbol.type_str(),
             StringLiteral(_) => "STRING",
             Number(_, _) => "NUMBER",
             Identifier(_) => "IDENTIFIER",
+            Reserved(word) => word.type_str(),
             EOF => "EOF",
         }
     }
