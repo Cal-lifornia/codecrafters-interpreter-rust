@@ -2,7 +2,7 @@ use std::env;
 use std::fs;
 use std::process::exit;
 
-use codecrafters_interpreter::ast::Expression;
+use codecrafters_interpreter::ast::Expr;
 use codecrafters_interpreter::tokens::Token;
 
 fn main() {
@@ -60,7 +60,7 @@ fn main() {
                         all_tokens.append(&mut tokens);
                     }
                 });
-                let expr = Expression::parse_tokens(&all_tokens).expect("expression");
+                let expr = Expr::parse_tokens(&all_tokens).expect("expression");
                 println!("{expr}");
             }
         }

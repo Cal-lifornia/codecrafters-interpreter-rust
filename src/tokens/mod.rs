@@ -1,10 +1,8 @@
 use std::io::ErrorKind;
 
 mod reserved_words;
-mod symbols;
 
 pub use reserved_words::*;
-pub use symbols::*;
 
 pub trait TokenDisplay {
     fn lexeme(&self) -> String;
@@ -14,7 +12,25 @@ pub trait TokenDisplay {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Token {
-    Symbol(SymbolToken),
+    LeftParen,
+    RightParen,
+    LeftBrace,
+    RightBrace,
+    Comma,
+    Dot,
+    Minus,
+    Plus,
+    Semicolon,
+    Star,
+    Equal,
+    Bang,
+    Less,
+    Greater,
+    EqualEqual,
+    BangEqual,
+    LessEqual,
+    GreaterEqual,
+    Slash,
     StringLiteral(String),
     Number(String, f64),
     Identifier(String),
@@ -24,22 +40,55 @@ pub enum Token {
 
 #[derive(PartialEq, Eq)]
 enum State {
-    Delimiter,
+    Symbol,
+    DoubleSymbol,
     Quotes,
     Num,
     Unquoted,
+    Skip,
 }
 
 impl Token {
-    pub fn parse(input: &str) -> (Vec<Token>, Vec<std::io::Error>) {
-        use SymbolToken::*;
+    pub fn single_char(value: char) -> Option<Token> {
         use Token::*;
-        let mut chars = input.chars();
+        let out = match value {
+            '(' => LeftParen,
+            ')' => RightParen,
+            '{' => LeftBrace,
+            '}' => RightBrace,
+            ',' => Comma,
+            '.' => Dot,
+            '-' => Minus,
+            '+' => Plus,
+            ';' => Semicolon,
+            '*' => Star,
+            '=' => Equal,
+            '!' => Bang,
+            '<' => Less,
+            '>' => Greater,
+            '/' => Slash,
+            _ => return None,
+        };
+        Some(out)
+    }
+
+    pub fn check_combo(current: &Self, next: &Self) -> bool {
+        use Token::*;
+        match (current, next) {
+            (Slash, Slash) => true,
+            (Equal | Bang | Less | Greater, Equal) => true,
+            _ => false,
+        }
+    }
+
+    pub fn parse(input: &str) -> (Vec<Token>, Vec<std::io::Error>) {
+        use Token::*;
+        let mut chars = input.chars().peekable();
         let mut word = String::new();
         let mut tokens = vec![];
         let mut errs = vec![];
         let mut last_token = Self::EOF;
-        let mut current_state = State::Delimiter;
+        let mut current_state = State::Symbol;
 
         loop {
             let c = chars.next();
@@ -57,7 +106,7 @@ impl Token {
                                 errs.push(std::io::Error::new(ErrorKind::InvalidInput, err));
                             }
                         }
-                        current_state = State::Delimiter;
+                        current_state = State::Symbol;
                     }
                 } else {
                     match word.parse::<f64>() {
@@ -73,7 +122,7 @@ impl Token {
             }
 
             match current_state {
-                State::Delimiter => {
+                State::Symbol => {
                     let c = match c {
                         Some(c) => c,
                         None => break,
@@ -137,7 +186,7 @@ impl Token {
                     Some('"') => {
                         let token = StringLiteral(std::mem::take(&mut word));
                         tokens.push(token);
-                        current_state = State::Delimiter;
+                        current_state = State::Symbol;
                     }
                     Some(ch) => word.push(ch),
                     None => {
@@ -158,7 +207,7 @@ impl Token {
                         } else {
                             tokens.push(Identifier(std::mem::take(&mut word)));
                         }
-                        current_state = State::Delimiter;
+                        current_state = State::Symbol;
                     }
                     Some(ch) => {
                         if let Ok(token) = SymbolToken::try_from(ch) {
@@ -171,7 +220,7 @@ impl Token {
                             }
                             last_token = token.clone();
                             tokens.push(token);
-                            current_state = State::Delimiter;
+                            current_state = State::Symbol;
                         } else if ch.is_alphanumeric() || ch == '_' {
                             word.push(ch);
                             continue;
@@ -198,14 +247,33 @@ impl Token {
 impl TokenDisplay for Token {
     fn lexeme(&self) -> String {
         use Token::*;
-        match self {
-            Symbol(symbol) => symbol.lexeme(),
-            StringLiteral(ident) => format!("\"{ident}\""),
-            Number(lex, _) => lex.to_string(),
-            Identifier(ident) => ident.to_string(),
-            Reserved(word) => word.lexeme(),
-            EOF => "".to_string(),
-        }
+        let out = match self {
+            LeftParen => "(",
+            RightParen => ")",
+            LeftBrace => "{",
+            RightBrace => "}",
+            Comma => ",",
+            Dot => ".",
+            Minus => "-",
+            Plus => "+",
+            Semicolon => ";",
+            Star => "*",
+            Equal => "=",
+            Bang => "!",
+            Less => "<",
+            Greater => ">",
+            Slash => "/",
+            EqualEqual => "==",
+            BangEqual => "!=",
+            GreaterEqual => ">=",
+            LessEqual => "<=",
+            StringLiteral(ident) => return format!("\"{ident}\""),
+            Number(lex, _) => lex,
+            Identifier(ident) => ident,
+            Reserved(word) => return word.lexeme(),
+            EOF => "",
+        };
+        out.to_string()
     }
 
     fn literal(&self) -> String {
@@ -220,7 +288,25 @@ impl TokenDisplay for Token {
     fn type_str(&self) -> &str {
         use Token::*;
         match self {
-            Symbol(symbol) => symbol.type_str(),
+            LeftParen => "LEFT_PAREN",
+            RightParen => "RIGHT_PAREN",
+            LeftBrace => "LEFT_BRACE",
+            RightBrace => "RIGHT_BRACE",
+            Comma => "COMMA",
+            Dot => "DOT",
+            Minus => "MINUS",
+            Plus => "PLUS",
+            Semicolon => "SEMICOLON",
+            Star => "STAR",
+            Equal => "EQUAL",
+            Bang => "BANG",
+            Less => "LESS",
+            Greater => "GREATER",
+            Slash => "SLASH",
+            EqualEqual => "EQUAL_EQUAL",
+            BangEqual => "BANG_EQUAL",
+            LessEqual => "LESS_EQUAL",
+            GreaterEqual => "GREATER_EQUAL",
             StringLiteral(_) => "STRING",
             Number(_, _) => "NUMBER",
             Identifier(_) => "IDENTIFIER",
