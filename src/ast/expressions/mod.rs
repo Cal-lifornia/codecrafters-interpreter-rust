@@ -1,4 +1,4 @@
-use std::{fmt::Display, io::Error};
+use std::fmt::Display;
 
 use crate::tokens::{SymbolToken, Token};
 
@@ -6,11 +6,14 @@ mod literal;
 pub use literal::*;
 mod group;
 pub use group::*;
+mod unary;
+pub use unary::*;
 
 #[derive(Debug, Clone)]
 pub enum Expression {
     Literal(Literal),
     Group(Box<Group>),
+    Unary(Box<Unary>),
 }
 
 enum State {
@@ -28,6 +31,14 @@ impl Expression {
             current_state = match current_state {
                 State::Literal => match val {
                     Token::Symbol(SymbolToken::LeftParen) => State::Group,
+                    Token::Symbol(SymbolToken::Minus) => {
+                        let expr = Expression::parse_tokens(&input[idx + 1..])?;
+                        return Ok(Self::Unary(Box::new(Unary::Minus(expr))));
+                    }
+                    Token::Symbol(SymbolToken::Bang) => {
+                        let expr = Expression::parse_tokens(&input[idx + 1..])?;
+                        return Ok(Self::Unary(Box::new(Unary::Bang(expr))));
+                    }
                     _ => {
                         if let Some(literal) = Literal::from_token(val) {
                             return Ok(Self::Literal(literal));
@@ -50,7 +61,7 @@ impl Expression {
             }
         }
 
-        Ok(exprs[0].clone())
+        Err(std::io::Error::other("unreachable"))
     }
 }
 
@@ -59,6 +70,7 @@ impl Display for Expression {
         match self {
             Self::Literal(literal) => write!(f, "{literal}",),
             Self::Group(group) => write!(f, "{group}"),
+            Self::Unary(unary) => write!(f, "{unary}"),
         }
     }
 }
