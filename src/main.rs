@@ -60,10 +60,8 @@ fn main() {
                         all_tokens.append(&mut tokens);
                     }
                 });
-                let exprs = Expression::parse_tokens(&all_tokens);
-                for expr in exprs {
-                    println!("{expr}");
-                }
+                let expr = Expression::parse_tokens(&all_tokens).expect("expression");
+                println!("{expr}");
             }
         }
         _ => {
