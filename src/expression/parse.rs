@@ -1,28 +1,10 @@
-use std::{
-    fmt::Display,
-    io::{Error, ErrorKind},
-};
+use std::io::{Error, ErrorKind};
 
 use crate::{
-    expressions::literal::Literal,
-    tokens::{Lexer, Token},
+    expression::{BinOp, Expr, Literal, UnaryOp},
+    tokens::{Lexer, ReservedWord, Token},
 };
 
-#[derive(Debug, Clone)]
-pub enum Expr {
-    Literal(Literal),
-    Group(Box<Expr>),
-    Unary(UnaryOp, Box<Expr>),
-    Arithmetic(BinOp, Box<Expr>, Box<Expr>),
-}
-
-pub trait ExprKind: Sized {
-    fn from_token(token: &Token) -> Option<Self>;
-}
-
-trait BindingPower {
-    fn infix_binding_power(&self) -> (u8, u8);
-}
 pub fn parse_tokens(lexer: &mut Lexer, min_bp: u8) -> std::io::Result<Expr> {
     let first = lexer.next_token();
     let mut lhs = if let Some(literal) = Literal::from_token(&first) {
@@ -71,54 +53,8 @@ pub fn parse_tokens(lexer: &mut Lexer, min_bp: u8) -> std::io::Result<Expr> {
     Ok(lhs)
 }
 
-impl Display for Expr {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Literal(literal) => write!(f, "{literal}",),
-            Self::Group(expr) => write!(f, "(group {expr})"),
-            Self::Unary(op, expr) => write!(f, "({op} {expr})"),
-            Self::Arithmetic(op, left, right) => write!(f, "({op} {left} {right})"),
-        }
-    }
-}
-
-#[derive(Debug, Clone)]
-pub enum UnaryOp {
-    Bang,
-    Minus,
-}
-
-impl ExprKind for UnaryOp {
-    fn from_token(token: &Token) -> Option<Self> {
-        match token {
-            Token::Bang => Some(Self::Bang),
-            Token::Minus => Some(Self::Minus),
-            _ => None,
-        }
-    }
-}
-
-impl Display for UnaryOp {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            UnaryOp::Bang => write!(f, "!"),
-            UnaryOp::Minus => write!(f, "-"),
-        }
-    }
-}
-
-#[derive(Debug, Clone)]
-pub enum BinOp {
-    Add,
-    Sub,
-    Mul,
-    Div,
-    Lt,
-    Le,
-    Gt,
-    Ge,
-    Eq,
-    Ne,
+trait BindingPower {
+    fn infix_binding_power(&self) -> (u8, u8);
 }
 
 impl BindingPower for BinOp {
@@ -132,6 +68,9 @@ impl BindingPower for BinOp {
     }
 }
 
+trait ExprKind: Sized {
+    fn from_token(token: &Token) -> Option<Self>;
+}
 impl ExprKind for BinOp {
     fn from_token(token: &Token) -> Option<Self> {
         match token {
@@ -149,22 +88,27 @@ impl ExprKind for BinOp {
         }
     }
 }
-
-impl Display for BinOp {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        use BinOp::*;
-        let symbol = match self {
-            Add => "+",
-            Sub => "-",
-            Mul => "*",
-            Div => "/",
-            Lt => "<",
-            Le => "<=",
-            Gt => ">",
-            Ge => ">=",
-            Eq => "==",
-            Ne => "!=",
-        };
-        write!(f, "{symbol}")
+impl ExprKind for UnaryOp {
+    fn from_token(token: &Token) -> Option<Self> {
+        match token {
+            Token::Bang => Some(Self::Bang),
+            Token::Minus => Some(Self::Minus),
+            _ => None,
+        }
+    }
+}
+impl ExprKind for Literal {
+    fn from_token(value: &Token) -> Option<Self> {
+        match value {
+            Token::Reserved(reserved) => match reserved {
+                ReservedWord::True => Some(Self::True),
+                ReservedWord::False => Some(Self::False),
+                ReservedWord::Nil => Some(Self::Nil),
+                _ => None,
+            },
+            Token::StringLiteral(value) => Some(Self::String(value.to_string())),
+            Token::Number(_, value) => Some(Self::Number(*value)),
+            _ => None,
+        }
     }
 }

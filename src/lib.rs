@@ -1,2 +1,2 @@
-pub mod expressions;
+pub mod expression;
 pub mod tokens;

@@ -2,7 +2,7 @@ use std::env;
 use std::fs;
 use std::process::exit;
 
-use codecrafters_interpreter::expressions::expr::parse_tokens;
+use codecrafters_interpreter::expression::parse_tokens;
 use codecrafters_interpreter::tokens::Lexer;
 use codecrafters_interpreter::tokens::Token;
 
@@ -57,6 +57,20 @@ fn main() {
                 exit(65)
             }
         },
+        "evaluate" => match Lexer::new(filename) {
+            Ok(mut lexer) => match parse_tokens(&mut lexer, 0) {
+                Ok(expr) => println!("{}", expr.evaluate()),
+                Err(err) => {
+                    eprintln!("Error {err}");
+                    exit(65)
+                }
+            },
+            Err(err) => {
+                eprintln!("Error {err}");
+                exit(65)
+            }
+        },
+
         _ => {
             eprintln!("Unknown command: {}", command);
             // return;
