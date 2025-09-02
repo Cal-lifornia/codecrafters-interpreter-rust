@@ -28,7 +28,9 @@ pub fn parse_tokens(lexer: &mut Lexer, min_bp: u8) -> std::io::Result<Expr> {
     let mut lhs = if let Some(literal) = Literal::from_token(&first) {
         Expr::Literal(literal)
     } else if first == Token::LeftParen {
-        Expr::Group(Box::new(parse_tokens(lexer, 0)?))
+        let lhs = Expr::Group(Box::new(parse_tokens(lexer, 0)?));
+        assert_eq!(lexer.next_token(), Token::RightParen);
+        lhs
     } else if let Some(op) = UnaryOp::from_token(&first) {
         Expr::Unary(op, Box::new(parse_tokens(lexer, 5)?))
     } else {
@@ -43,7 +45,6 @@ pub fn parse_tokens(lexer: &mut Lexer, min_bp: u8) -> std::io::Result<Expr> {
         let op = match next {
             Token::EOF => break,
             Token::RightParen => {
-                lexer.next_token();
                 break;
             }
             _ => {
@@ -58,13 +59,13 @@ pub fn parse_tokens(lexer: &mut Lexer, min_bp: u8) -> std::io::Result<Expr> {
             }
         };
 
-        let (l_pb, r_pb) = op.infix_binding_power();
-        if l_pb < min_bp {
+        let (l_bp, r_bp) = op.infix_binding_power();
+        if l_bp < min_bp {
             break;
         }
 
         lexer.next_token();
-        let rhs = parse_tokens(lexer, r_pb)?;
+        let rhs = parse_tokens(lexer, r_bp)?;
         lhs = Expr::Arithmetic(op, Box::new(lhs), Box::new(rhs));
     }
     Ok(lhs)
@@ -94,12 +95,6 @@ impl ExprKind for UnaryOp {
             Token::Minus => Some(Self::Minus),
             _ => None,
         }
-    }
-}
-
-impl BindingPower for UnaryOp {
-    fn infix_binding_power(&self) -> (u8, u8) {
-        (0, 5)
     }
 }
 
