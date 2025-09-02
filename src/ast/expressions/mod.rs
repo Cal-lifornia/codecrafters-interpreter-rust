@@ -113,6 +113,10 @@ pub enum BinOp {
     Sub,
     Mul,
     Div,
+    Lt,
+    Le,
+    Gt,
+    Ge,
 }
 
 impl BindingPower for BinOp {
@@ -121,6 +125,7 @@ impl BindingPower for BinOp {
         match self {
             Add | Sub => (1, 2),
             Mul | Div => (3, 4),
+            Lt | Le | Gt | Ge => (5, 6),
         }
     }
 }
@@ -132,6 +137,10 @@ impl ExprKind for BinOp {
             Token::Minus => Some(Self::Sub),
             Token::Star => Some(Self::Mul),
             Token::Slash => Some(Self::Div),
+            Token::Less => Some(Self::Lt),
+            Token::LessEqual => Some(Self::Le),
+            Token::Greater => Some(Self::Gt),
+            Token::GreaterEqual => Some(Self::Ge),
             _ => None,
         }
     }
@@ -139,11 +148,16 @@ impl ExprKind for BinOp {
 
 impl Display for BinOp {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        use BinOp::*;
         let symbol = match self {
-            BinOp::Add => "+",
-            BinOp::Sub => "-",
-            BinOp::Mul => "*",
-            BinOp::Div => "/",
+            Add => "+",
+            Sub => "-",
+            Mul => "*",
+            Div => "/",
+            Lt => "<",
+            Le => "<=",
+            Gt => ">",
+            Ge => ">=",
         };
         write!(f, "{symbol}")
     }
