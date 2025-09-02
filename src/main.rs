@@ -22,7 +22,7 @@ fn main() {
                 eprintln!("Failed to read file {}", filename);
                 String::new()
             });
-            // Uncomment this block to pass the first stage
+
             if !file_contents.is_empty() {
                 let mut err_present = false;
                 file_contents.lines().enumerate().for_each(|(idx, line)| {
@@ -44,11 +44,19 @@ fn main() {
                 println!("EOF  null"); // Placeholder, replace this line when implementing the scanner
             }
         }
-        "parse" => {
-            let mut lexer = Lexer::new(filename).expect("no errors");
-            let expr = parse_tokens(&mut lexer, 0).expect("no errors");
-            println!("{expr}");
-        }
+        "parse" => match Lexer::new(filename) {
+            Ok(mut lexer) => match parse_tokens(&mut lexer, 0) {
+                Ok(expr) => println!("{expr}"),
+                Err(err) => {
+                    eprintln!("Error {err}");
+                    exit(65)
+                }
+            },
+            Err(err) => {
+                eprintln!("Error {err}");
+                exit(65)
+            }
+        },
         _ => {
             eprintln!("Unknown command: {}", command);
             // return;
