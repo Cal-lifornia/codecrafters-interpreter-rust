@@ -1,6 +1,9 @@
 use std::fmt::Display;
 
-use crate::tokens::{ReservedWord, Token};
+use crate::{
+    ast::expressions::ExprKind,
+    tokens::{ReservedWord, Token},
+};
 
 #[derive(Debug, Clone)]
 pub enum Literal {
@@ -23,8 +26,8 @@ impl Display for Literal {
     }
 }
 
-impl Literal {
-    pub fn from_token(value: &Token) -> Option<Self> {
+impl ExprKind for Literal {
+    fn from_token(value: &Token) -> Option<Self> {
         match value {
             Token::Reserved(reserved) => match reserved {
                 ReservedWord::True => Some(Self::True),

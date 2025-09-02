@@ -1,7 +1,12 @@
-use std::fmt::Display;
+use std::{
+    fmt::Display,
+    io::{Error, ErrorKind},
+};
 
 mod literal;
 pub use literal::*;
+
+use crate::tokens::{Lexer, Token};
 
 #[derive(Debug, Clone)]
 pub enum Expr {
@@ -11,83 +16,65 @@ pub enum Expr {
     Arithmetic(BinOp, Box<Expr>, Box<Expr>),
 }
 
-// enum State {
-//     Literal,
-//     Group,
-//     Arithmetic(SymbolToken),
-//     Unary(SymbolToken),
-// }
+trait ExprKind: Sized {
+    fn from_token(token: &Token) -> Option<Self>;
+}
 
-impl Expr {
-    // pub fn parse_tokens(input: &[Token]) -> std::io::Result<Self> {
-    //     let mut temp_tokens: Vec<Token> = vec![];
-    //     let mut current_state = State::Literal;
-    //     let mut exprs: Vec<Expression> = vec![];
+trait BindingPower {
+    fn infix_binding_power(&self) -> (u8, u8);
+}
+pub fn parse_tokens(lexer: &mut Lexer, min_bp: u8) -> std::io::Result<Expr> {
+    let first = lexer.next_token();
+    let mut lhs = if let Some(literal) = Literal::from_token(&first) {
+        Expr::Literal(literal)
+    } else if first == Token::LeftParen {
+        Expr::Group(Box::new(parse_tokens(lexer, 0)?))
+    } else if let Some(op) = UnaryOp::from_token(&first) {
+        Expr::Unary(op, Box::new(parse_tokens(lexer, 5)?))
+    } else {
+        return Err(Error::new(
+            ErrorKind::InvalidInput,
+            format!("invalid token: {first}"),
+        ));
+    };
 
-    //     for (idx, val) in input.iter().enumerate() {
-    //         current_state = match current_state {
-    //             State::Literal => match val {
-    //                 Token::Symbol(SymbolToken::LeftParen) => State::Group,
-    //                 Token::Symbol(SymbolToken::Minus) => State::Unary(SymbolToken::Minus),
+    loop {
+        let next = lexer.peek_next();
+        let op = match next {
+            Token::EOF => break,
+            Token::RightParen => {
+                lexer.next_token();
+                break;
+            }
+            _ => {
+                if let Some(op) = BinOp::from_token(&next) {
+                    op
+                } else {
+                    return Err(std::io::Error::new(
+                        ErrorKind::InvalidInput,
+                        "invalid token",
+                    ));
+                }
+            }
+        };
 
-    //                 Token::Symbol(SymbolToken::Bang) => State::Unary(SymbolToken::Bang),
+        let (l_pb, r_pb) = op.infix_binding_power();
+        if l_pb < min_bp {
+            break;
+        }
 
-    //                 _ => {
-    //                     if let Some(literal) = Literal::from_token(val) {
-    //                         exprs.push(Self::Literal(literal));
-    //                         match input[idx + 1] {
-    //                             Token::Symbol(symbol) => {
-    //                                 if matches!(symbol, SymbolToken::Slash | SymbolToken::Star) {
-    //                                     State::Arithmetic(symbol)
-    //                                 } else {
-    //                                     break;
-    //                                 }
-    //                             }
-    //                             _ => {
-    //                                 break;
-    //                             }
-    //                         }
-    //                     } else {
-    //                         temp_tokens.push(val.clone());
-    //                         continue;
-    //                     }
-    //                 }
-    //             },
-    //             State::Group => match val {
-    //                 Token::Symbol(SymbolToken::RightParen) => {
-    //                     let group = Self::Group(Box::new(Group::new(exprs.remove(0))));
-    //                     exprs.push(group);
-    //                     if matches!(
-    //                         input[idx + 1],
-    //                         Token::Symbol(SymbolToken::Star | SymbolToken::Slash)
-    //                     ) {
-    //                         State::Arithmetic
-    //                     } else {
-    //                         break;
-    //                     }
-    //                 }
-    //                 _ => {
-    //                     let expr = Expression::parse_tokens(&input[idx..])?;
-    //                     exprs.push(expr);
-    //                     State::Group
-    //                 }
-    //             },
-    //             State::Arithmetic(symbol) => match val {
-    //                 Token::Symbol(SymbolToken::Star) => {}
-    //             },
-    //         }
-    //     }
-
-    //     Ok(exprs[0].clone())
-    // }
-    //
+        lexer.next_token();
+        let rhs = parse_tokens(lexer, r_pb)?;
+        lhs = Expr::Arithmetic(op, Box::new(lhs), Box::new(rhs));
+    }
+    Ok(lhs)
 }
 
 impl Display for Expr {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Literal(literal) => write!(f, "{literal}",),
-            Self::Group(expr) => write!(f, "({expr})"),
+            Self::Group(expr) => write!(f, "(group {expr})"),
             Self::Unary(op, expr) => write!(f, "({op} {expr})"),
             Self::Arithmetic(op, left, right) => write!(f, "({op} {left} {right})"),
         }
@@ -98,6 +85,22 @@ impl Display for Expr {
 pub enum UnaryOp {
     Bang,
     Minus,
+}
+
+impl ExprKind for UnaryOp {
+    fn from_token(token: &Token) -> Option<Self> {
+        match token {
+            Token::Bang => Some(Self::Bang),
+            Token::Minus => Some(Self::Minus),
+            _ => None,
+        }
+    }
+}
+
+impl BindingPower for UnaryOp {
+    fn infix_binding_power(&self) -> (u8, u8) {
+        (0, 5)
+    }
 }
 
 impl Display for UnaryOp {
@@ -115,6 +118,28 @@ pub enum BinOp {
     Sub,
     Mul,
     Div,
+}
+
+impl BindingPower for BinOp {
+    fn infix_binding_power(&self) -> (u8, u8) {
+        use BinOp::*;
+        match self {
+            Add | Sub => (1, 2),
+            Mul | Div => (3, 4),
+        }
+    }
+}
+
+impl ExprKind for BinOp {
+    fn from_token(token: &Token) -> Option<Self> {
+        match token {
+            Token::Plus => Some(Self::Add),
+            Token::Minus => Some(Self::Sub),
+            Token::Star => Some(Self::Mul),
+            Token::Slash => Some(Self::Div),
+            _ => None,
+        }
+    }
 }
 
 impl Display for BinOp {

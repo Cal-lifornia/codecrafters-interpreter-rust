@@ -1,6 +1,6 @@
 use std::{collections::HashMap, sync::LazyLock};
 
-use crate::tokens::TokenDisplay;
+use crate::tokens::parse::TokenDisplay;
 
 static RESERVED_WORDS: LazyLock<HashMap<String, ReservedWord>> = LazyLock::new(|| {
     use ReservedWord::*;
