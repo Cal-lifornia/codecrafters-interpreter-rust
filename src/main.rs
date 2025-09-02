@@ -2,7 +2,7 @@ use std::env;
 use std::fs;
 use std::process::exit;
 
-use codecrafters_interpreter::ast::parse_tokens;
+use codecrafters_interpreter::expressions::expr::parse_tokens;
 use codecrafters_interpreter::tokens::Lexer;
 use codecrafters_interpreter::tokens::Token;
 

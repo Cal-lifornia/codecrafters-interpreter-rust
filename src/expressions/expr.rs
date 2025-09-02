@@ -3,10 +3,10 @@ use std::{
     io::{Error, ErrorKind},
 };
 
-mod literal;
-pub use literal::*;
-
-use crate::tokens::{Lexer, Token};
+use crate::{
+    expressions::literal::Literal,
+    tokens::{Lexer, Token},
+};
 
 #[derive(Debug, Clone)]
 pub enum Expr {
@@ -16,7 +16,7 @@ pub enum Expr {
     Arithmetic(BinOp, Box<Expr>, Box<Expr>),
 }
 
-trait ExprKind: Sized {
+pub trait ExprKind: Sized {
     fn from_token(token: &Token) -> Option<Self>;
 }
 

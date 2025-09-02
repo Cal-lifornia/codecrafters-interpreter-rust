@@ -1,7 +1,7 @@
 use std::fmt::Display;
 
 use crate::{
-    ast::expressions::ExprKind,
+    expressions::expr::ExprKind,
     tokens::{ReservedWord, Token},
 };
 
