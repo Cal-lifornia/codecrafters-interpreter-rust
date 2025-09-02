@@ -117,6 +117,8 @@ pub enum BinOp {
     Le,
     Gt,
     Ge,
+    Eq,
+    Ne,
 }
 
 impl BindingPower for BinOp {
@@ -125,7 +127,7 @@ impl BindingPower for BinOp {
         match self {
             Add | Sub => (1, 2),
             Mul | Div => (3, 4),
-            Lt | Le | Gt | Ge => (5, 6),
+            Lt | Le | Gt | Ge | Eq | Ne => (5, 6),
         }
     }
 }
@@ -141,6 +143,8 @@ impl ExprKind for BinOp {
             Token::LessEqual => Some(Self::Le),
             Token::Greater => Some(Self::Gt),
             Token::GreaterEqual => Some(Self::Ge),
+            Token::EqualEqual => Some(Self::Eq),
+            Token::BangEqual => Some(Self::Ne),
             _ => None,
         }
     }
@@ -158,6 +162,8 @@ impl Display for BinOp {
             Le => "<=",
             Gt => ">",
             Ge => ">=",
+            Eq => "==",
+            Ne => "!=",
         };
         write!(f, "{symbol}")
     }
