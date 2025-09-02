@@ -43,27 +43,27 @@ fn main() {
                 println!("EOF  null"); // Placeholder, replace this line when implementing the scanner
             }
         }
-        "parse" => {
-            let file_contents = fs::read_to_string(filename).unwrap_or_else(|_| {
-                eprintln!("Failed to read file {}", filename);
-                String::new()
-            });
+        // "parse" => {
+        //     let file_contents = fs::read_to_string(filename).unwrap_or_else(|_| {
+        //         eprintln!("Failed to read file {}", filename);
+        //         String::new()
+        //     });
 
-            let mut all_tokens = vec![];
+        //     let mut all_tokens = vec![];
 
-            if !file_contents.is_empty() {
-                file_contents.lines().for_each(|line| {
-                    let (mut tokens, errs) = Token::parse(line);
-                    if !errs.is_empty() {
-                        panic!("no errs")
-                    } else {
-                        all_tokens.append(&mut tokens);
-                    }
-                });
-                let expr = Expr::parse_tokens(&all_tokens).expect("expression");
-                println!("{expr}");
-            }
-        }
+        //     if !file_contents.is_empty() {
+        //         file_contents.lines().for_each(|line| {
+        //             let (mut tokens, errs) = Token::parse(line);
+        //             if !errs.is_empty() {
+        //                 panic!("no errs")
+        //             } else {
+        //                 all_tokens.append(&mut tokens);
+        //             }
+        //         });
+        //         let expr = Expr::parse_tokens(&all_tokens).expect("expression");
+        //         println!("{expr}");
+        //     }
+        // }
         _ => {
             eprintln!("Unknown command: {}", command);
             // return;

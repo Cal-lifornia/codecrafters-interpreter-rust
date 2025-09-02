@@ -1,7 +1,5 @@
 use std::fmt::Display;
 
-use crate::tokens::{SymbolToken, Token};
-
 mod literal;
 pub use literal::*;
 
