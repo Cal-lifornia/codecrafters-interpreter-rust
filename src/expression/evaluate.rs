@@ -7,7 +7,7 @@ impl Expr {
                 Literal::Number(num) => format!("{num}"),
                 _ => format!("{literal}"),
             },
-            Expr::Group(_) => todo!(),
+            Expr::Group(expr) => expr.evaluate(),
             Expr::Unary(_, _) => todo!(),
             Expr::Arithmetic(bin_op, left, right) => match (left.as_ref(), right.as_ref()) {
                 (
