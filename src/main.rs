@@ -59,7 +59,13 @@ fn main() {
         },
         "evaluate" => match Lexer::new(filename) {
             Ok(mut lexer) => match parse_tokens(&mut lexer, 0) {
-                Ok(expr) => println!("{}", expr.evaluate()),
+                Ok(expr) => match expr.evaluate() {
+                    Ok(eval) => println!("{eval}"),
+                    Err(err) => {
+                        eprintln!("{err}");
+                        exit(err.exit_code())
+                    }
+                },
                 Err(err) => {
                     eprintln!("Error {err}");
                     exit(65)
