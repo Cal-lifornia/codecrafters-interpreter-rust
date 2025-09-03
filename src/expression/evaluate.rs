@@ -3,7 +3,10 @@ use crate::expression::{Expr, Literal};
 impl Expr {
     pub fn evaluate(&self) -> String {
         match self {
-            Expr::Literal(literal) => format!("{literal}"),
+            Expr::Literal(literal) => match literal {
+                Literal::Number(num) => format!("{num}"),
+                _ => format!("{literal}"),
+            },
             Expr::Group(_) => todo!(),
             Expr::Unary(_, _) => todo!(),
             Expr::Arithmetic(bin_op, left, right) => match (left.as_ref(), right.as_ref()) {
