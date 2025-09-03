@@ -41,18 +41,26 @@ impl Expr {
                     BinOp::Ne => EvaluateResult::Boolean(num_left != num_right),
                 },
                 (EvaluateResult::String(string_left), EvaluateResult::String(string_right)) => {
-                    if matches!(op, BinOp::Add) {
-                        EvaluateResult::String(format!("{string_left}{string_right}"))
-                    } else {
-                        EvaluateResult::Nil
+                    match op {
+                        BinOp::Add => {
+                            EvaluateResult::String(format!("{string_left}{string_right}"))
+                        }
+                        BinOp::Eq => EvaluateResult::Boolean(string_left == string_right),
+                        BinOp::Ne => EvaluateResult::Boolean(string_left != string_right),
+                        _ => todo!(),
                     }
                 }
-                _ => todo!(),
+                _ => match op {
+                    BinOp::Eq => EvaluateResult::Boolean(left.evaluate() == right.evaluate()),
+                    BinOp::Ne => EvaluateResult::Boolean(left.evaluate() != right.evaluate()),
+                    _ => todo!(),
+                },
             },
         }
     }
 }
 
+#[derive(Debug, Clone, PartialEq)]
 pub enum EvaluateResult {
     String(String),
     Number(f64),
