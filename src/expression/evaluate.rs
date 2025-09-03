@@ -1,27 +1,50 @@
-use crate::expression::{Expr, Literal};
+use std::fmt::Display;
+
+use crate::expression::{Expr, Literal, UnaryOp};
 
 impl Expr {
-    pub fn evaluate(&self) -> String {
+    pub fn evaluate(&self) -> EvaluateResult {
         match self {
             Expr::Literal(literal) => match literal {
-                Literal::Number(num) => format!("{num}"),
-                _ => format!("{literal}"),
+                Literal::Number(num) => EvaluateResult::Number(*num),
+                Literal::String(val) => EvaluateResult::String(val.to_string()),
+                Literal::True => EvaluateResult::Boolean(true),
+                Literal::False => EvaluateResult::Boolean(false),
+                Literal::Nil => EvaluateResult::Nil,
             },
             Expr::Group(expr) => expr.evaluate(),
-            Expr::Unary(_, _) => todo!(),
-            Expr::Arithmetic(bin_op, left, right) => match (left.as_ref(), right.as_ref()) {
-                (
-                    &Expr::Literal(Literal::Number(num_left)),
-                    &Expr::Literal(Literal::Number(num_right)),
-                ) => match bin_op {
-                    crate::expression::BinOp::Add => format!("{}", num_left + num_right),
-                    crate::expression::BinOp::Sub => format!("{}", num_left - num_right),
-                    crate::expression::BinOp::Mul => format!("{}", num_left * num_right),
-                    crate::expression::BinOp::Div => todo!("{}", num_left / num_right),
-                    _ => "".to_string(),
+            Expr::Unary(unary_op, expr) => match unary_op {
+                UnaryOp::Bang => match expr.evaluate() {
+                    EvaluateResult::String(_) => EvaluateResult::Boolean(false),
+                    EvaluateResult::Number(_) => EvaluateResult::Boolean(false),
+                    EvaluateResult::Boolean(val) => EvaluateResult::Boolean(!val),
+                    EvaluateResult::Nil => EvaluateResult::Boolean(true),
                 },
-                _ => "".to_string(),
+                UnaryOp::Minus => match expr.evaluate() {
+                    EvaluateResult::String(_) => EvaluateResult::Boolean(false),
+                    EvaluateResult::Number(num) => EvaluateResult::Number(-num),
+                    EvaluateResult::Boolean(_) => EvaluateResult::Boolean(false),
+                    EvaluateResult::Nil => EvaluateResult::Nil,
+                },
             },
+            Expr::Arithmetic(_, _, _) => todo!(),
+        }
+    }
+}
+
+pub enum EvaluateResult {
+    String(String),
+    Number(f64),
+    Boolean(bool),
+    Nil,
+}
+impl Display for EvaluateResult {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::String(val) => write!(f, "{val}"),
+            Self::Number(val) => write!(f, "{val}"),
+            Self::Boolean(val) => write!(f, "{val}"),
+            Self::Nil => write!(f, "nil"),
         }
     }
 }
