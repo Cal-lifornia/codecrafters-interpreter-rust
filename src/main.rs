@@ -26,17 +26,14 @@ fn main() {
 
             if !file_contents.is_empty() {
                 let mut err_present = false;
-                file_contents.lines().enumerate().for_each(|(idx, line)| {
-                    let (tokens, errs) = Token::tokenize(line);
-                    if !errs.is_empty() {
-                        err_present = true;
-                        errs.iter().for_each(|err| {
-                            let line_number = idx + 1;
-                            eprintln!("[line {line_number}] Error: {err}");
-                        })
-                    }
-                    tokens.iter().for_each(|token| println!("{token}"))
-                });
+                let (tokens, errs) = Token::tokenize(&file_contents);
+                if !errs.is_empty() {
+                    err_present = true;
+                    errs.iter().for_each(|err| {
+                        eprintln!("{err}");
+                    })
+                }
+                tokens.iter().for_each(|token| println!("{token}"));
                 println!("{}", Token::EOF);
                 if err_present {
                     exit(65)
@@ -79,7 +76,7 @@ fn main() {
         },
         "run" => match Lexer::new(filename) {
             Ok(lexer) => {
-                let mut program = Program::new(lexer);
+                let program = Program::new(lexer);
                 if let Err(err) = program.run() {
                     eprintln!("Error {err}");
                     exit(err.exit_code())

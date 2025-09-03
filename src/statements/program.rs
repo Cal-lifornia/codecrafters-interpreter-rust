@@ -15,18 +15,21 @@ impl Program {
         Self { lexer }
     }
 
-    pub fn run(&mut self) -> Result<(), InterpreterError> {
-        if let Token::Semicolon = self.lexer.pop_last() {
-            let first = self.lexer.next_token();
-            if let Token::Reserved(reserved) = first {
-                match reserved {
-                    ReservedWord::Print => print_stmt(self)?,
-                    _ => todo!(),
+    pub fn run(&self) -> Result<(), InterpreterError> {
+        let mut statements = self.lexer.get_statements();
+        // println!("statements {statements:#?}");
+        for stmt in statements.iter_mut() {
+            if !stmt.tokens().is_empty() {
+                let first = stmt.next_token();
+                // println!("first {first}");
+                if let Token::Reserved(reserved) = first {
+                    match reserved {
+                        ReservedWord::Print => print_stmt(stmt)?,
+                        _ => todo!(),
+                    }
                 }
             }
-            Ok(())
-        } else {
-            Err(InterpreterError::Runtime("missing semicolon".to_string()))
         }
+        Ok(())
     }
 }

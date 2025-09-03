@@ -1,5 +1,6 @@
 use crate::{error::InterpreterError, tokens::Token};
 
+#[derive(Debug)]
 pub struct Lexer {
     tokens: Vec<Token>,
 }
@@ -8,21 +9,14 @@ impl Lexer {
     pub fn new(file: &str) -> Result<Self, InterpreterError> {
         let file_contents = std::fs::read_to_string(file)
             .map_err(|err| InterpreterError::Syntax(err.to_string()))?;
-        let mut all_tokens = vec![];
 
-        if !file_contents.is_empty() {
-            for line in file_contents.lines() {
-                let (mut tokens, errs) = Token::tokenize(line);
-                if !errs.is_empty() {
-                    return Err(errs[0].clone());
-                } else {
-                    all_tokens.append(&mut tokens);
-                }
-            }
+        let (mut tokens, errs) = Token::tokenize(&file_contents);
+        if !errs.is_empty() {
+            return Err(errs[0].clone());
         }
-        all_tokens.reverse();
+        tokens.reverse();
 
-        Ok(Self { tokens: all_tokens })
+        Ok(Self { tokens })
     }
 
     pub fn next_token(&mut self) -> Token {
@@ -43,5 +37,14 @@ impl Lexer {
         } else {
             Token::EOF
         }
+    }
+
+    pub fn get_statements(&self) -> Vec<Self> {
+        self.tokens
+            .rsplit(|token| token == &Token::Semicolon)
+            .map(|tokens| Self {
+                tokens: tokens.to_vec(),
+            })
+            .collect::<Vec<Self>>()
     }
 }

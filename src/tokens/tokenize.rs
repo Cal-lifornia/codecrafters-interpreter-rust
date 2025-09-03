@@ -40,7 +40,36 @@ enum State {
     Quotes,
     Num,
     Unquoted,
+    Comment,
 }
+
+// #[derive(Debug, PartialEq, Clone)]
+// pub struct Token {
+//     line: usize,
+//     ch: usize,
+//     kind: TokenKind,
+// }
+
+// impl Token {
+//     pub fn new(line_num: usize, char_num: usize, kind: TokenKind) -> Self {
+//         Self {
+//             line: line_num,
+//             ch: char_num,
+//             kind,
+//         }
+//     }
+
+//     pub fn line(&self) -> usize {
+//         self.line
+//     }
+//     pub fn char_num(&self) -> usize {
+//         self.ch
+//     }
+
+//     pub fn token(&self) -> &TokenKind {
+//         &self.kind
+//     }
+// }
 
 impl Token {
     fn single_char(value: char) -> Option<Token> {
@@ -102,16 +131,23 @@ impl Token {
         let mut word = String::new();
         let mut tokens = vec![];
         let mut errs = vec![];
+        let mut line_number = 1;
+        let mut _char_number = 0;
 
         let mut state = State::Symbol;
 
         loop {
             let c = chars.next();
+            _char_number += 1;
+
             state = match state {
                 State::Symbol => match c {
                     Some('"') => State::Quotes,
-                    Some('\t' | ' ') => {
-                        continue;
+                    Some('\t' | ' ') => State::Symbol,
+                    Some('\n') => {
+                        line_number += 1;
+                        _char_number = 0;
+                        State::Symbol
                     }
                     Some(ch) => {
                         if let Some(token) = Token::single_char(ch) {
@@ -119,8 +155,10 @@ impl Token {
                                 .next_if(|&val| Token::check_double_token(&token, val))
                                 .unwrap_or('c');
                             if let Some(next_token) = Token::single_char(next_ch) {
+                                _char_number += 1;
                                 if token == Slash && next_token == Slash {
-                                    break;
+                                    state = State::Comment;
+                                    continue;
                                 }
                                 if let Some(double_token) =
                                     Self::new_double_token(&token, &next_token)
@@ -169,7 +207,7 @@ impl Token {
                             State::Unquoted
                         } else {
                             errs.push(InterpreterError::Syntax(format!(
-                                "Unexpected character: {ch}"
+                                "[line {line_number}] Error: Unexpected character: {ch}"
                             )));
                             State::Symbol
                         }
@@ -184,12 +222,15 @@ impl Token {
                         tokens.push(token);
                         State::Symbol
                     }
+                    // Some('\n') => State::Quotes,
                     Some(ch) => {
                         word.push(ch);
                         State::Quotes
                     }
                     None => {
-                        errs.push(InterpreterError::Syntax("Unterminated string.".to_string()));
+                        errs.push(InterpreterError::Syntax(format!(
+                            "[line {line_number}] Error: Unterminated string."
+                        )));
                         break;
                     }
                 },
@@ -220,7 +261,7 @@ impl Token {
                     None => break,
                 },
                 State::Unquoted => match c {
-                    Some(' ') | None => {
+                    Some(' ') | Some('\n') | None => {
                         if let Some(reserved) = ReservedWord::get(&word) {
                             word.clear();
                             tokens.push(Reserved(reserved));
@@ -234,7 +275,7 @@ impl Token {
                             word.push(ch);
                         } else {
                             errs.push(InterpreterError::Syntax(format!(
-                                "Unexpected character: {ch}"
+                                "[line {line_number}] Error: Unexpected character: {ch}"
                             )));
                             state = State::Symbol;
                             continue;
@@ -253,6 +294,14 @@ impl Token {
                         }
                         State::Unquoted
                     }
+                },
+                State::Comment => match c {
+                    Some('\n') => {
+                        line_number += 1;
+                        State::Symbol
+                    }
+                    Some(_) => State::Comment,
+                    None => break,
                 },
             };
         }
