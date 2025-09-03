@@ -13,7 +13,7 @@ pub fn parse_tokens(lexer: &mut Lexer, min_bp: u8) -> Result<Expr, InterpreterEr
         assert_eq!(lexer.next_token(), Token::RightParen);
         lhs
     } else if let Some(op) = UnaryOp::from_token(&first) {
-        Expr::Unary(op, Box::new(parse_tokens(lexer, 5)?))
+        Expr::Unary(op, Box::new(parse_tokens(lexer, 7)?))
     } else {
         return Err(InterpreterError::Syntax(format!("invalid token: {first}")));
     };
@@ -54,9 +54,9 @@ impl BindingPower for BinOp {
     fn infix_binding_power(&self) -> (u8, u8) {
         use BinOp::*;
         match self {
-            Add | Sub => (1, 2),
-            Mul | Div => (3, 4),
-            Lt | Le | Gt | Ge | Eq | Ne => (5, 6),
+            Add | Sub => (3, 4),
+            Mul | Div => (5, 6),
+            Lt | Le | Gt | Ge | Eq | Ne => (1, 2),
         }
     }
 }

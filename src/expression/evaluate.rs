@@ -7,6 +7,7 @@ use crate::{
 
 impl Expr {
     pub fn evaluate(&self) -> EvaluateResult {
+        // println!("evaluate expr: {self}");
         match self {
             Expr::Literal(literal) => match literal {
                 Literal::Number(num) => Ok(EvaluateValue::Number(*num)),
