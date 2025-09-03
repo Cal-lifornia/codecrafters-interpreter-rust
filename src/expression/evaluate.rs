@@ -33,7 +33,12 @@ impl Expr {
                     BinOp::Sub => EvaluateResult::Number(num_left - num_right),
                     BinOp::Mul => EvaluateResult::Number(num_left * num_right),
                     BinOp::Div => EvaluateResult::Number(num_left / num_right),
-                    _ => todo!(),
+                    BinOp::Lt => EvaluateResult::Boolean(num_left < num_right),
+                    BinOp::Le => EvaluateResult::Boolean(num_left <= num_right),
+                    BinOp::Gt => EvaluateResult::Boolean(num_left > num_right),
+                    BinOp::Ge => EvaluateResult::Boolean(num_left >= num_right),
+                    BinOp::Eq => EvaluateResult::Boolean(num_left == num_right),
+                    BinOp::Ne => EvaluateResult::Boolean(num_left != num_right),
                 },
                 (EvaluateResult::String(string_left), EvaluateResult::String(string_right)) => {
                     if matches!(op, BinOp::Add) {
