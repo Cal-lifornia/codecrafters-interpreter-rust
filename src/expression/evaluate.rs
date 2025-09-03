@@ -50,13 +50,17 @@ impl Expr {
                         ))),
                         BinOp::Eq => Ok(EvaluateValue::Boolean(string_left == string_right)),
                         BinOp::Ne => Ok(EvaluateValue::Boolean(string_left != string_right)),
-                        _ => todo!(),
+                        _ => Err(InterpreterError::new_runtime_err(
+                            &"Operand must be a number",
+                        )),
                     }
                 }
                 (left_val, right_val) => match op {
                     BinOp::Eq => Ok(EvaluateValue::Boolean(left_val == right_val)),
                     BinOp::Ne => Ok(EvaluateValue::Boolean(left_val != right_val)),
-                    _ => todo!(),
+                    _ => Err(InterpreterError::new_runtime_err(
+                        &"Operand must be a number",
+                    )),
                 },
             },
         }
