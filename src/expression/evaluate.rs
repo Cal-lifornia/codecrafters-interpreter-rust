@@ -35,6 +35,13 @@ impl Expr {
                     BinOp::Div => EvaluateResult::Number(num_left / num_right),
                     _ => todo!(),
                 },
+                (EvaluateResult::String(string_left), EvaluateResult::String(string_right)) => {
+                    if matches!(op, BinOp::Add) {
+                        EvaluateResult::String(format!("{string_left}{string_right}"))
+                    } else {
+                        EvaluateResult::Nil
+                    }
+                }
                 _ => todo!(),
             },
         }
