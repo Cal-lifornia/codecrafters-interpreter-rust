@@ -1,6 +1,6 @@
 use std::fmt::Display;
 
-use crate::expression::{Expr, Literal, UnaryOp};
+use crate::expression::{BinOp, Expr, Literal, UnaryOp};
 
 impl Expr {
     pub fn evaluate(&self) -> EvaluateResult {
@@ -27,7 +27,16 @@ impl Expr {
                     EvaluateResult::Nil => EvaluateResult::Nil,
                 },
             },
-            Expr::Arithmetic(_, _, _) => todo!(),
+            Expr::Arithmetic(op, left, right) => match (left.evaluate(), right.evaluate()) {
+                (EvaluateResult::Number(num_left), EvaluateResult::Number(num_right)) => match op {
+                    BinOp::Add => EvaluateResult::Number(num_left + num_right),
+                    BinOp::Sub => EvaluateResult::Number(num_left - num_right),
+                    BinOp::Mul => EvaluateResult::Number(num_left * num_right),
+                    BinOp::Div => EvaluateResult::Number(num_left / num_right),
+                    _ => todo!(),
+                },
+                _ => todo!(),
+            },
         }
     }
 }
