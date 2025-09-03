@@ -1,6 +1,6 @@
 mod lexer;
 pub use lexer::*;
-mod parse;
 mod reserved_words;
-pub use parse::Token;
+mod tokenize;
 pub use reserved_words::*;
+pub use tokenize::Token;

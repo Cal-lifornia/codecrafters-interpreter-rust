@@ -1,11 +1,10 @@
-use std::io::{Error, ErrorKind};
-
 use crate::{
+    error::InterpreterError,
     expression::{BinOp, Expr, Literal, UnaryOp},
     tokens::{Lexer, ReservedWord, Token},
 };
 
-pub fn parse_tokens(lexer: &mut Lexer, min_bp: u8) -> std::io::Result<Expr> {
+pub fn parse_tokens(lexer: &mut Lexer, min_bp: u8) -> Result<Expr, InterpreterError> {
     let first = lexer.next_token();
     let mut lhs = if let Some(literal) = Literal::from_token(&first) {
         Expr::Literal(literal)
@@ -16,10 +15,7 @@ pub fn parse_tokens(lexer: &mut Lexer, min_bp: u8) -> std::io::Result<Expr> {
     } else if let Some(op) = UnaryOp::from_token(&first) {
         Expr::Unary(op, Box::new(parse_tokens(lexer, 5)?))
     } else {
-        return Err(Error::new(
-            ErrorKind::InvalidInput,
-            format!("invalid token: {first}"),
-        ));
+        return Err(InterpreterError::Syntax(format!("invalid token: {first}")));
     };
 
     loop {
@@ -33,10 +29,7 @@ pub fn parse_tokens(lexer: &mut Lexer, min_bp: u8) -> std::io::Result<Expr> {
                 if let Some(op) = BinOp::from_token(&next) {
                     op
                 } else {
-                    return Err(std::io::Error::new(
-                        ErrorKind::InvalidInput,
-                        "invalid token",
-                    ));
+                    return Err(InterpreterError::Syntax(format!("invalid token: {next}")));
                 }
             }
         };

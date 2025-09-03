@@ -1,4 +1,4 @@
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, thiserror::Error, Clone)]
 pub enum InterpreterError {
     #[error("{0}")]
     Runtime(String),
@@ -7,12 +7,6 @@ pub enum InterpreterError {
 }
 
 impl InterpreterError {
-    pub fn new_syntax_err(err: &dyn std::fmt::Display) -> Self {
-        Self::Syntax(format!("{err}"))
-    }
-    pub fn new_runtime_err(err: &dyn std::fmt::Display) -> Self {
-        Self::Runtime(format!("{err}"))
-    }
     pub fn exit_code(&self) -> i32 {
         match self {
             InterpreterError::Runtime(_) => 70,

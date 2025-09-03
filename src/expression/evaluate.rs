@@ -25,8 +25,8 @@ impl Expr {
                 },
                 UnaryOp::Minus => match expr.evaluate()? {
                     EvaluateValue::Number(num) => Ok(EvaluateValue::Number(-num)),
-                    _ => Err(InterpreterError::new_runtime_err(
-                        &"Operand must be a number",
+                    _ => Err(InterpreterError::Runtime(
+                        "Operand must be a number".to_string(),
                     )),
                 },
             },
@@ -50,16 +50,16 @@ impl Expr {
                         ))),
                         BinOp::Eq => Ok(EvaluateValue::Boolean(string_left == string_right)),
                         BinOp::Ne => Ok(EvaluateValue::Boolean(string_left != string_right)),
-                        _ => Err(InterpreterError::new_runtime_err(
-                            &"Operand must be a number",
+                        _ => Err(InterpreterError::Runtime(
+                            "Operand must be a number".to_string(),
                         )),
                     }
                 }
                 (left_val, right_val) => match op {
                     BinOp::Eq => Ok(EvaluateValue::Boolean(left_val == right_val)),
                     BinOp::Ne => Ok(EvaluateValue::Boolean(left_val != right_val)),
-                    _ => Err(InterpreterError::new_runtime_err(
-                        &"Operand must be a number",
+                    _ => Err(InterpreterError::Runtime(
+                        "Operand must be a number".to_string(),
                     )),
                 },
             },

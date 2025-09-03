@@ -1,19 +1,20 @@
-use crate::tokens::Token;
+use crate::{error::InterpreterError, tokens::Token};
 
 pub struct Lexer {
     tokens: Vec<Token>,
 }
 
 impl Lexer {
-    pub fn new(file: &str) -> Result<Self, std::io::Error> {
-        let file_contents = std::fs::read_to_string(file)?;
+    pub fn new(file: &str) -> Result<Self, InterpreterError> {
+        let file_contents = std::fs::read_to_string(file)
+            .map_err(|err| InterpreterError::Syntax(err.to_string()))?;
         let mut all_tokens = vec![];
 
         if !file_contents.is_empty() {
             for line in file_contents.lines() {
-                let (mut tokens, errs) = Token::parse(line);
+                let (mut tokens, errs) = Token::tokenize(line);
                 if !errs.is_empty() {
-                    return Err(std::io::Error::other(errs[0].to_string()));
+                    return Err(errs[0].clone());
                 } else {
                     all_tokens.append(&mut tokens);
                 }
@@ -32,5 +33,15 @@ impl Lexer {
     }
     pub fn tokens(&self) -> Vec<Token> {
         self.tokens.clone()
+    }
+    pub fn last_token(&self) -> &Token {
+        self.tokens.first().unwrap_or(&Token::EOF)
+    }
+    pub fn pop_last(&mut self) -> Token {
+        if !self.tokens.is_empty() {
+            self.tokens.remove(0)
+        } else {
+            Token::EOF
+        }
     }
 }

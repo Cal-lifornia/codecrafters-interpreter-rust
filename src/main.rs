@@ -3,6 +3,7 @@ use std::fs;
 use std::process::exit;
 
 use codecrafters_interpreter::expression::parse_tokens;
+use codecrafters_interpreter::statements::program::Program;
 use codecrafters_interpreter::tokens::Lexer;
 use codecrafters_interpreter::tokens::Token;
 
@@ -26,7 +27,7 @@ fn main() {
             if !file_contents.is_empty() {
                 let mut err_present = false;
                 file_contents.lines().enumerate().for_each(|(idx, line)| {
-                    let (tokens, errs) = Token::parse(line);
+                    let (tokens, errs) = Token::tokenize(line);
                     if !errs.is_empty() {
                         err_present = true;
                         errs.iter().for_each(|err| {
@@ -68,12 +69,25 @@ fn main() {
                 },
                 Err(err) => {
                     eprintln!("Error {err}");
-                    exit(65)
+                    exit(err.exit_code())
                 }
             },
             Err(err) => {
                 eprintln!("Error {err}");
                 exit(65)
+            }
+        },
+        "run" => match Lexer::new(filename) {
+            Ok(lexer) => {
+                let mut program = Program::new(lexer);
+                if let Err(err) = program.run() {
+                    eprintln!("Error {err}");
+                    exit(err.exit_code())
+                }
+            }
+            Err(err) => {
+                eprintln!("Error {err}");
+                exit(err.exit_code())
             }
         },
 

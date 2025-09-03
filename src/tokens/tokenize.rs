@@ -1,6 +1,4 @@
-use std::io::ErrorKind;
-
-use crate::tokens::reserved_words::ReservedWord;
+use crate::{error::InterpreterError, tokens::reserved_words::ReservedWord};
 
 pub trait TokenDisplay {
     fn lexeme(&self) -> String;
@@ -97,7 +95,7 @@ impl Token {
         }
     }
 
-    pub fn parse(input: &str) -> (Vec<Token>, Vec<std::io::Error>) {
+    pub fn tokenize(input: &str) -> (Vec<Token>, Vec<InterpreterError>) {
         use Token::*;
 
         let mut chars = input.chars().peekable();
@@ -149,10 +147,7 @@ impl Token {
                                         tokens.push(Number(std::mem::take(&mut word), num));
                                     }
                                     Err(err) => {
-                                        errs.push(std::io::Error::new(
-                                            ErrorKind::InvalidInput,
-                                            err,
-                                        ));
+                                        errs.push(InterpreterError::Syntax(err.to_string()));
                                     }
                                 }
                                 State::Symbol
@@ -173,10 +168,9 @@ impl Token {
                             }
                             State::Unquoted
                         } else {
-                            errs.push(std::io::Error::new(
-                                ErrorKind::InvalidInput,
-                                format!("Unexpected character: {ch}"),
-                            ));
+                            errs.push(InterpreterError::Syntax(format!(
+                                "Unexpected character: {ch}"
+                            )));
                             State::Symbol
                         }
                     }
@@ -195,10 +189,7 @@ impl Token {
                         State::Quotes
                     }
                     None => {
-                        errs.push(std::io::Error::new(
-                            ErrorKind::InvalidInput,
-                            "Unterminated string.",
-                        ));
+                        errs.push(InterpreterError::Syntax("Unterminated string.".to_string()));
                         break;
                     }
                 },
@@ -220,7 +211,7 @@ impl Token {
                                     tokens.push(Number(std::mem::take(&mut word), num));
                                 }
                                 Err(err) => {
-                                    errs.push(std::io::Error::new(ErrorKind::InvalidInput, err));
+                                    errs.push(InterpreterError::Syntax(err.to_string()));
                                 }
                             }
                             State::Symbol
@@ -242,10 +233,9 @@ impl Token {
                         if ch.is_alphanumeric() || ch == '_' {
                             word.push(ch);
                         } else {
-                            errs.push(std::io::Error::new(
-                                ErrorKind::InvalidInput,
-                                format!("Unexpected character: {ch}"),
-                            ));
+                            errs.push(InterpreterError::Syntax(format!(
+                                "Unexpected character: {ch}"
+                            )));
                             state = State::Symbol;
                             continue;
                         }
@@ -269,168 +259,6 @@ impl Token {
 
         (tokens, errs)
     }
-
-    // pub fn parse(input: &str) -> (Vec<Token>, Vec<std::io::Error>) {
-    //     use Token::*;
-    //     let mut chars = input.chars().peekable();
-    //     let mut word = String::new();
-    //     let mut tokens = vec![];
-    //     let mut errs = vec![];
-    //     let mut last_token = Self::EOF;
-    //     let mut current_state = State::Symbol;
-
-    //     loop {
-    //         let c = chars.next();
-    //         if current_state == State::Num {
-    //             if let Some(ch) = c {
-    //                 if ch.is_ascii_digit() || ch == '.' {
-    //                     word.push(ch);
-    //                     continue;
-    //                 } else {
-    //                     match word.parse::<f64>() {
-    //                         Ok(num) => {
-    //                             tokens.push(Number(std::mem::take(&mut word), num));
-    //                         }
-    //                         Err(err) => {
-    //                             errs.push(std::io::Error::new(ErrorKind::InvalidInput, err));
-    //                         }
-    //                     }
-    //                     current_state = State::Symbol;
-    //                 }
-    //             } else {
-    //                 match word.parse::<f64>() {
-    //                     Ok(num) => {
-    //                         tokens.push(Number(std::mem::take(&mut word), num));
-    //                     }
-    //                     Err(err) => {
-    //                         errs.push(std::io::Error::new(ErrorKind::InvalidInput, err));
-    //                     }
-    //                 }
-    //                 break;
-    //             }
-    //         }
-
-    //         match current_state {
-    //             State::Symbol => {
-    //                 let c = match c {
-    //                     Some(c) => c,
-    //                     None => break,
-    //                 };
-    //                 let current_token = match c {
-    //                     '"' => {
-    //                         current_state = State::Quotes;
-    //                         continue;
-    //                     }
-    //                     // Ignore tabs or whitespace
-    //                     '\t' | ' ' => {
-    //                         last_token = EOF;
-    //                         continue;
-    //                     }
-    //                     _ => match SymbolToken::try_from(c) {
-    //                         Ok(token) => Symbol(token),
-    //                         Err(err) => {
-    //                             if c.is_ascii_digit() {
-    //                                 word.push(c);
-    //                                 current_state = State::Num;
-    //                             } else if c.is_alphanumeric() || c == '_' {
-    //                                 word.push(c);
-    //                                 current_state = State::Unquoted;
-    //                             } else {
-    //                                 errs.push(err);
-    //                             }
-    //                             last_token = EOF;
-    //                             continue;
-    //                         }
-    //                     },
-    //                 };
-
-    //                 // Check for comments
-    //                 if last_token == Symbol(Slash) && current_token == Symbol(Slash) {
-    //                     let _ = tokens.pop();
-    //                     break;
-    //                 // Check for comparison operators
-    //                 } else if matches!(
-    //                     last_token,
-    //                     Symbol(Equal) | Symbol(Bang) | Symbol(Less) | Symbol(Greater)
-    //                 ) && current_token == Symbol(Equal)
-    //                 {
-    //                     let _ = tokens.pop();
-    //                     match last_token {
-    //                         Symbol(Bang) => tokens.push(Symbol(BangEqual)),
-    //                         Symbol(Equal) => tokens.push(Symbol(EqualEqual)),
-    //                         Symbol(Less) => tokens.push(Symbol(LessEqual)),
-    //                         Symbol(Greater) => tokens.push(Symbol(GreaterEqual)),
-    //                         _ => unreachable!(),
-    //                     }
-    //                     last_token = EOF;
-    //                 // Normal token
-    //                 } else {
-    //                     last_token = current_token.clone();
-    //                     tokens.push(current_token);
-    //                 }
-    //             }
-
-    //             // Capturing any that is a string
-    //             State::Quotes => match c {
-    //                 Some('"') => {
-    //                     let token = StringLiteral(std::mem::take(&mut word));
-    //                     tokens.push(token);
-    //                     current_state = State::Symbol;
-    //                 }
-    //                 Some(ch) => word.push(ch),
-    //                 None => {
-    //                     errs.push(std::io::Error::new(
-    //                         ErrorKind::InvalidInput,
-    //                         "Unterminated string.",
-    //                     ));
-    //                     break;
-    //                 }
-    //             },
-
-    //             // Unquoted, so likely an identifier or reserved word
-    //             State::Unquoted => match c {
-    //                 Some(' ') => {
-    //                     if let Some(reserved) = ReservedWord::get(&word) {
-    //                         word.clear();
-    //                         tokens.push(Reserved(reserved));
-    //                     } else {
-    //                         tokens.push(Identifier(std::mem::take(&mut word)));
-    //                     }
-    //                     current_state = State::Symbol;
-    //                 }
-    //                 Some(ch) => {
-    //                     if let Ok(token) = SymbolToken::try_from(ch) {
-    //                         let token = Symbol(token);
-    //                         if let Some(reserved) = ReservedWord::get(&word) {
-    //                             word.clear();
-    //                             tokens.push(Reserved(reserved));
-    //                         } else {
-    //                             tokens.push(Identifier(std::mem::take(&mut word)));
-    //                         }
-    //                         last_token = token.clone();
-    //                         tokens.push(token);
-    //                         current_state = State::Symbol;
-    //                     } else if ch.is_alphanumeric() || ch == '_' {
-    //                         word.push(ch);
-    //                         continue;
-    //                     }
-    //                 }
-    //                 None => {
-    //                     if let Some(reserved) = ReservedWord::get(&word) {
-    //                         word.clear();
-    //                         tokens.push(Reserved(reserved));
-    //                     } else {
-    //                         tokens.push(Identifier(std::mem::take(&mut word)));
-    //                     }
-    //                     break;
-    //                 }
-    //             },
-    //             State::Num => unreachable!(),
-    //         }
-    //     }
-
-    //     (tokens, errs)
-    // }
 }
 
 impl TokenDisplay for Token {
