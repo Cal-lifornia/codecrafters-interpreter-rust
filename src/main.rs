@@ -2,6 +2,7 @@ use std::env;
 use std::fs;
 use std::process::exit;
 
+use codecrafters_interpreter::context::Context;
 use codecrafters_interpreter::expression::parse_tokens;
 use codecrafters_interpreter::statements::program::Program;
 use codecrafters_interpreter::tokens::Lexer;
@@ -43,7 +44,7 @@ fn main() {
             }
         }
         "parse" => match Lexer::new(filename) {
-            Ok(mut lexer) => match parse_tokens(&mut lexer, 0) {
+            Ok(lexer) => match parse_tokens(&mut Context::new(lexer), 0) {
                 Ok(expr) => println!("{expr}"),
                 Err(err) => {
                     eprintln!("Error {err}");
@@ -56,8 +57,8 @@ fn main() {
             }
         },
         "evaluate" => match Program::new(filename) {
-            Ok(mut program) => match parse_tokens(&mut program, 0) {
-                Ok(expr) => match expr.evaluate() {
+            Ok(mut program) => match parse_tokens(&mut Context::new(program.lexer()), 0) {
+                Ok(expr) => match expr.evaluate(&mut program) {
                     Ok(eval) => println!("{eval}"),
                     Err(err) => {
                         eprintln!("{err}");
@@ -71,19 +72,18 @@ fn main() {
             },
             Err(err) => {
                 eprintln!("Error {err}");
-                exit(65)
+                exit(err.exit_code())
             }
         },
-        "run" => match Lexer::new(filename) {
-            Ok(lexer) => {
-                let program = Program::new(lexer);
+        "run" => match Program::new(filename) {
+            Ok(mut program) => {
                 if let Err(err) = program.run() {
-                    eprintln!("Error {err}");
+                    eprintln!("{err}");
                     exit(err.exit_code())
                 }
             }
             Err(err) => {
-                eprintln!("Error {err}");
+                eprintln!("{err}");
                 exit(err.exit_code())
             }
         },

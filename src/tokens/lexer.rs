@@ -1,6 +1,6 @@
 use crate::{error::InterpreterError, tokens::Token};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Lexer {
     tokens: Vec<Token>,
 }

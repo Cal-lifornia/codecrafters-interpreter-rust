@@ -1,33 +1,36 @@
 use crate::{
+    context::Context,
     error::InterpreterError,
     expression::{BinOp, Expr, Literal, UnaryOp},
-    statements::program::Program,
-    tokens::{Lexer, ReservedWord, Token},
+    tokens::{ReservedWord, Token},
 };
 
-pub fn parse_tokens(program: &mut Program, min_bp: u8) -> Result<Expr, InterpreterError> {
-    let first = program.lexer_mut().next_token();
+pub fn parse_tokens(ctx: &mut Context, min_bp: u8) -> Result<Expr, InterpreterError> {
+    let first = ctx.statement().next_token();
     let mut lhs = if let Some(literal) = Literal::from_token(&first) {
         Expr::Literal(literal)
     } else if first == Token::LeftParen {
-        let lhs = Expr::Group(Box::new(parse_tokens(program, 0)?));
-        assert_eq!(program.lexer_mut().next_token(), Token::RightParen);
+        let lhs = Expr::Group(Box::new(parse_tokens(ctx, 0)?));
+        if ctx.statement().next_token() != Token::RightParen {
+            return Err(InterpreterError::Syntax("Error: Missing ')'".to_string()));
+        }
+
         lhs
     } else if let Token::Identifier(ident) = first {
-        if program.lexer_mut().peek_next() == Token::Equal {
-            assert_eq!(program.lexer_mut().next_token(), Token::Equal);
-            Expr::Assignment(ident, Box::new(parse_tokens(program, 0)?))
+        if ctx.statement().peek_next() == Token::Equal {
+            assert_eq!(ctx.statement().next_token(), Token::Equal);
+            Expr::Assignment(ident, Box::new(parse_tokens(ctx, 0)?))
         } else {
-            Expr::Identifier(ident)
+            Expr::Variable(ident)
         }
     } else if let Some(op) = UnaryOp::from_token(&first) {
-        Expr::Unary(op, Box::new(parse_tokens(program, 7)?))
+        Expr::Unary(op, Box::new(parse_tokens(ctx, 7)?))
     } else {
         return Err(InterpreterError::Syntax(format!("invalid token: {first}")));
     };
 
     loop {
-        let next = program.lexer_mut().peek_next();
+        let next = ctx.statement().peek_next();
         let op = match next {
             Token::EOF => break,
             Token::RightParen => {
@@ -47,8 +50,8 @@ pub fn parse_tokens(program: &mut Program, min_bp: u8) -> Result<Expr, Interpret
             break;
         }
 
-        program.lexer_mut().next_token();
-        let rhs = parse_tokens(program, r_bp)?;
+        ctx.statement().next_token();
+        let rhs = parse_tokens(ctx, r_bp)?;
         lhs = Expr::Arithmetic(op, Box::new(lhs), Box::new(rhs));
     }
     Ok(lhs)

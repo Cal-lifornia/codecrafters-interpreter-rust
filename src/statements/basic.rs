@@ -1,8 +1,11 @@
-use crate::{expression::parse_tokens, statements::program::ProgramResult, tokens::Lexer};
+use crate::{
+    context::Context,
+    expression::parse_tokens,
+    statements::program::{Program, ProgramResult},
+};
 
-pub fn print_stmt(lexer: &mut Lexer) -> ProgramResult {
-    let _ = lexer.next_token();
-    let expr = parse_tokens(lexer, 0)?;
-    println!("{}", expr.evaluate()?);
+pub fn print_stmt(program: &mut Program, ctx: &mut Context) -> ProgramResult {
+    let expr = parse_tokens(ctx, 0)?;
+    println!("{}", expr.evaluate(program)?);
     Ok(())
 }
