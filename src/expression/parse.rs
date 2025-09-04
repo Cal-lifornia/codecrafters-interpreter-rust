@@ -28,7 +28,14 @@ pub fn parse_tokens(ctx: &mut Context, min_bp: u8) -> Result<Expr, InterpreterEr
                 return Err(InterpreterError::Syntax(format!("invalid token: {first}")));
             }
         }
-        Token::Identifier(ident) => Expr::Variable(ident),
+        Token::Identifier(ident) => {
+            if ctx.statement().peek_next() == Token::Equal {
+                assert_eq!(ctx.statement().next_token(), Token::Equal);
+                Expr::Assignment(ident, Box::new(parse_tokens(ctx, 0)?))
+            } else {
+                Expr::Variable(ident)
+            }
+        }
         _ => {
             if let Some(literal) = Literal::from_token(&first) {
                 Expr::Literal(literal)
