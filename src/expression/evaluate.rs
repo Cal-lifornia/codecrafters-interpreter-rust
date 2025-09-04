@@ -70,12 +70,9 @@ impl Expr {
             }
             Expr::Variable(ident) => match program.variables.get(ident) {
                 Some(val) => Ok(val.clone()),
-                None => {
-                    let _ = program
-                        .variables
-                        .insert(ident.to_string(), EvaluateValue::Nil);
-                    Ok(EvaluateValue::Nil)
-                }
+                None => Err(InterpreterError::Runtime(format!(
+                    "Undefined variable '{ident}'"
+                ))),
             },
             Expr::Assignment(ident, expr) => {
                 let value = expr.evaluate(program)?;
