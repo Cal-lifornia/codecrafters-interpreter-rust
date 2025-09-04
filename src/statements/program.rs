@@ -48,7 +48,6 @@ impl Program {
                     print_stmt(self, ctx)
                 }
                 ReservedWord::Var => {
-                    ctx.statement().next_token();
                     parse_tokens(ctx, 0)?.evaluate(self)?;
                     Ok(())
                 }

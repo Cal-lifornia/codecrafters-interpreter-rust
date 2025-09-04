@@ -7,26 +7,44 @@ use crate::{
 
 pub fn parse_tokens(ctx: &mut Context, min_bp: u8) -> Result<Expr, InterpreterError> {
     let first = ctx.statement().next_token();
-    let mut lhs = if let Some(literal) = Literal::from_token(&first) {
-        Expr::Literal(literal)
-    } else if first == Token::LeftParen {
-        let lhs = Expr::Group(Box::new(parse_tokens(ctx, 0)?));
-        if ctx.statement().next_token() != Token::RightParen {
-            return Err(InterpreterError::Syntax("Error: Missing ')'".to_string()));
-        }
+    let mut lhs = match first {
+        Token::LeftParen => {
+            let lhs = Expr::Group(Box::new(parse_tokens(ctx, 0)?));
+            if ctx.statement().next_token() != Token::RightParen {
+                return Err(InterpreterError::Syntax("Error: Missing ')'".to_string()));
+            }
 
-        lhs
-    } else if let Token::Identifier(ident) = first {
-        if ctx.statement().peek_next() == Token::Equal {
-            assert_eq!(ctx.statement().next_token(), Token::Equal);
-            Expr::Assignment(ident, Box::new(parse_tokens(ctx, 0)?))
-        } else {
-            Expr::Variable(ident)
+            lhs
         }
-    } else if let Some(op) = UnaryOp::from_token(&first) {
-        Expr::Unary(op, Box::new(parse_tokens(ctx, 7)?))
-    } else {
-        return Err(InterpreterError::Syntax(format!("invalid token: {first}")));
+        Token::Reserved(ReservedWord::Var) => {
+            if let Token::Identifier(ident) = ctx.statement().next_token() {
+                if ctx.statement().peek_next() == Token::Equal {
+                    assert_eq!(ctx.statement().next_token(), Token::Equal);
+                    Expr::Assignment(ident, Box::new(parse_tokens(ctx, 0)?))
+                } else {
+                    Expr::Assignment(ident, Box::new(Expr::Literal(Literal::Nil)))
+                }
+            } else {
+                return Err(InterpreterError::Syntax(format!("invalid token: {first}")));
+            }
+        }
+        Token::Identifier(ident) => Expr::Variable(ident),
+        _ => {
+            if let Some(literal) = Literal::from_token(&first) {
+                Expr::Literal(literal)
+            } else if first == Token::LeftParen {
+                let lhs = Expr::Group(Box::new(parse_tokens(ctx, 0)?));
+                if ctx.statement().next_token() != Token::RightParen {
+                    return Err(InterpreterError::Syntax("Error: Missing ')'".to_string()));
+                }
+
+                lhs
+            } else if let Some(op) = UnaryOp::from_token(&first) {
+                Expr::Unary(op, Box::new(parse_tokens(ctx, 7)?))
+            } else {
+                return Err(InterpreterError::Syntax(format!("invalid token: {first}")));
+            }
+        }
     };
 
     loop {
