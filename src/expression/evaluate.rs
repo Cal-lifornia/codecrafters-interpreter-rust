@@ -2,7 +2,7 @@ use std::fmt::Display;
 
 use crate::{
     error::InterpreterError,
-    expression::{BinOp, Expr, Literal, UnaryOp},
+    expression::{BinOp, BuiltinKind, Expr, Literal, UnaryOp},
     statements::program::Program,
 };
 
@@ -24,6 +24,9 @@ impl Expr {
                     EvaluateValue::Number(_) => Ok(EvaluateValue::Boolean(false)),
                     EvaluateValue::Boolean(val) => Ok(EvaluateValue::Boolean(!val)),
                     EvaluateValue::Nil => Ok(EvaluateValue::Boolean(true)),
+                    _ => Err(InterpreterError::Runtime(
+                        "Incorrect expression type".to_string(),
+                    )),
                 },
                 UnaryOp::Minus => match expr.evaluate(program)? {
                     EvaluateValue::Number(num) => Ok(EvaluateValue::Number(-num)),
@@ -83,6 +86,19 @@ impl Expr {
                 }
                 Ok(value)
             }
+            Expr::Builtin(builtin, expr) => match builtin {
+                BuiltinKind::Print => {
+                    println!("{}", expr.evaluate(program)?);
+                    Ok(EvaluateValue::Empty)
+                }
+            },
+            Expr::Box(exprs) => {
+                let mut res = vec![];
+                for expr in exprs {
+                    res.push(expr.evaluate(program)?);
+                }
+                Ok(EvaluateValue::Many(res))
+            }
         }
     }
 }
@@ -94,7 +110,9 @@ pub enum EvaluateValue {
     String(String),
     Number(f64),
     Boolean(bool),
+    Many(Vec<EvaluateValue>),
     Nil,
+    Empty,
 }
 
 impl Display for EvaluateValue {
@@ -103,7 +121,14 @@ impl Display for EvaluateValue {
             Self::String(val) => write!(f, "{val}"),
             Self::Number(val) => write!(f, "{val}"),
             Self::Boolean(val) => write!(f, "{val}"),
+            Self::Many(vals) => {
+                let mut out = String::new();
+                vals.iter()
+                    .for_each(|expr| out.push_str(format!("{expr}").as_str()));
+                write!(f, "{out}")
+            }
             Self::Nil => write!(f, "nil"),
+            Self::Empty => write!(f, ""),
         }
     }
 }

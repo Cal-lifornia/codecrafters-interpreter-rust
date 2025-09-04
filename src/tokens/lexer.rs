@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use crate::{error::InterpreterError, tokens::Token};
 
 #[derive(Debug, Clone)]
@@ -39,12 +41,27 @@ impl Lexer {
         }
     }
 
-    pub fn get_statements(&self) -> Vec<Self> {
+    // pub fn split_blocks(&mut self) -> Vec<Self> {
+    //     if let self.peek_next()
+    // }
+
+    pub fn split_at_semicolon(&self) -> Vec<Self> {
         self.tokens
             .rsplit(|token| token == &Token::Semicolon)
             .map(|tokens| Self {
                 tokens: tokens.to_vec(),
             })
             .collect::<Vec<Self>>()
+    }
+}
+
+impl Display for Lexer {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut out = String::new();
+        self.tokens
+            .iter()
+            .rev()
+            .for_each(|token| out.push_str(format!("{token}\n").as_str()));
+        write!(f, "{out}")
     }
 }

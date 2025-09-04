@@ -1,7 +1,7 @@
 use crate::{
     context::Context,
     error::InterpreterError,
-    expression::{BinOp, Expr, Literal, UnaryOp},
+    expression::{BinOp, BuiltinKind, Expr, Literal, UnaryOp},
     tokens::{ReservedWord, Token},
 };
 
@@ -28,6 +28,24 @@ pub fn parse_tokens(ctx: &mut Context, min_bp: u8) -> Result<Expr, InterpreterEr
                 return Err(InterpreterError::Syntax(format!("invalid token: {first}")));
             }
         }
+        Token::Reserved(ReservedWord::Print) => {
+            Expr::Builtin(BuiltinKind::Print, Box::new(parse_tokens(ctx, 0)?))
+        }
+        Token::LeftBrace => {
+            let mut next = ctx.statement().next_token();
+            let mut exprs = vec![];
+            loop {
+                if next != Token::RightBrace {
+                    exprs.push(parse_tokens(ctx, 0)?);
+                    ctx.statement().next_token();
+                    next = ctx.statement().peek_next();
+                } else {
+                    ctx.statement().next_token();
+                    break;
+                }
+            }
+            Expr::Box(exprs)
+        }
         Token::Identifier(ident) => {
             if ctx.statement().peek_next() == Token::Equal {
                 assert_eq!(ctx.statement().next_token(), Token::Equal);
@@ -44,7 +62,6 @@ pub fn parse_tokens(ctx: &mut Context, min_bp: u8) -> Result<Expr, InterpreterEr
                 if ctx.statement().next_token() != Token::RightParen {
                     return Err(InterpreterError::Syntax("Error: Missing ')'".to_string()));
                 }
-
                 lhs
             } else if let Some(op) = UnaryOp::from_token(&first) {
                 Expr::Unary(op, Box::new(parse_tokens(ctx, 7)?))
@@ -57,10 +74,7 @@ pub fn parse_tokens(ctx: &mut Context, min_bp: u8) -> Result<Expr, InterpreterEr
     loop {
         let next = ctx.statement().peek_next();
         let op = match next {
-            Token::EOF => break,
-            Token::RightParen => {
-                break;
-            }
+            Token::EOF | Token::RightParen | Token::Semicolon => break,
             _ => {
                 if let Some(op) = BinOp::from_token(&next) {
                     op
@@ -82,11 +96,7 @@ pub fn parse_tokens(ctx: &mut Context, min_bp: u8) -> Result<Expr, InterpreterEr
     Ok(lhs)
 }
 
-trait BindingPower {
-    fn infix_binding_power(&self) -> (u8, u8);
-}
-
-impl BindingPower for BinOp {
+impl BinOp {
     fn infix_binding_power(&self) -> (u8, u8) {
         use BinOp::*;
         match self {

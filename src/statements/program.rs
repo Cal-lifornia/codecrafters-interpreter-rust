@@ -4,8 +4,7 @@ use crate::{
     context::Context,
     error::InterpreterError,
     expression::{evaluate::EvaluateValue, parse_tokens},
-    statements::basic::print_stmt,
-    tokens::{Lexer, ReservedWord, Token},
+    tokens::Lexer,
 };
 
 pub struct Program {
@@ -25,40 +24,12 @@ impl Program {
     }
 
     pub fn run(&mut self) -> Result<(), InterpreterError> {
-        let statements = self.lexer.get_statements();
-        for stmt in statements {
-            if !stmt.tokens().is_empty() {
-                let mut ctx = Context::new(stmt);
-                self.run_statement(&mut ctx)?;
-            }
-        }
+        let expr = parse_tokens(&mut Context::new(self.lexer()), 0)?;
+        expr.evaluate(self)?;
         Ok(())
     }
 
     pub fn lexer(&self) -> Lexer {
         self.lexer.clone()
-    }
-
-    fn run_statement(&mut self, ctx: &mut Context) -> Result<(), InterpreterError> {
-        let first = ctx.statement().peek_next();
-        if let Token::Reserved(reserved) = first {
-            match reserved {
-                ReservedWord::Print => {
-                    ctx.statement().next_token();
-                    print_stmt(self, ctx)
-                }
-                ReservedWord::Var => {
-                    parse_tokens(ctx, 0)?.evaluate(self)?;
-                    Ok(())
-                }
-                _ => {
-                    parse_tokens(ctx, 0)?;
-                    Ok(())
-                }
-            }
-        } else {
-            parse_tokens(ctx, 0)?.evaluate(self)?;
-            Ok(())
-        }
     }
 }

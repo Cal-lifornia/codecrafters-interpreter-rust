@@ -8,6 +8,8 @@ pub enum Expr {
     Arithmetic(BinOp, Box<Expr>, Box<Expr>),
     Variable(String),
     Assignment(String, Box<Expr>),
+    Builtin(BuiltinKind, Box<Expr>),
+    Box(Vec<Expr>),
 }
 
 impl Display for Expr {
@@ -19,6 +21,14 @@ impl Display for Expr {
             Self::Arithmetic(op, left, right) => write!(f, "({op} {left} {right})"),
             Self::Variable(ident) => write!(f, "{ident}"),
             Self::Assignment(ident, expr) => write!(f, "{ident} equals {expr}"),
+            Self::Builtin(builtin, expr) => write!(f, "{builtin} {expr}"),
+            Self::Box(exprs) => {
+                let mut out = String::new();
+                exprs
+                    .iter()
+                    .for_each(|expr| out.push_str(format!("{expr}").as_str()));
+                write!(f, "{out}")
+            }
         }
     }
 }
@@ -87,6 +97,19 @@ impl Display for Literal {
             Self::True => write!(f, "true"),
             Self::False => write!(f, "false"),
             Self::Nil => write!(f, "nil"),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum BuiltinKind {
+    Print,
+}
+
+impl Display for BuiltinKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Print => write!(f, "print"),
         }
     }
 }
