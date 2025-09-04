@@ -55,8 +55,8 @@ fn main() {
                 exit(65)
             }
         },
-        "evaluate" => match Lexer::new(filename) {
-            Ok(mut lexer) => match parse_tokens(&mut lexer, 0) {
+        "evaluate" => match Program::new(filename) {
+            Ok(mut program) => match parse_tokens(&mut program, 0) {
                 Ok(expr) => match expr.evaluate() {
                     Ok(eval) => println!("{eval}"),
                     Err(err) => {

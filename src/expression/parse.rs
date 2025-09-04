@@ -1,25 +1,33 @@
 use crate::{
     error::InterpreterError,
     expression::{BinOp, Expr, Literal, UnaryOp},
+    statements::program::Program,
     tokens::{Lexer, ReservedWord, Token},
 };
 
-pub fn parse_tokens(lexer: &mut Lexer, min_bp: u8) -> Result<Expr, InterpreterError> {
-    let first = lexer.next_token();
+pub fn parse_tokens(program: &mut Program, min_bp: u8) -> Result<Expr, InterpreterError> {
+    let first = program.lexer_mut().next_token();
     let mut lhs = if let Some(literal) = Literal::from_token(&first) {
         Expr::Literal(literal)
     } else if first == Token::LeftParen {
-        let lhs = Expr::Group(Box::new(parse_tokens(lexer, 0)?));
-        assert_eq!(lexer.next_token(), Token::RightParen);
+        let lhs = Expr::Group(Box::new(parse_tokens(program, 0)?));
+        assert_eq!(program.lexer_mut().next_token(), Token::RightParen);
         lhs
+    } else if let Token::Identifier(ident) = first {
+        if program.lexer_mut().peek_next() == Token::Equal {
+            assert_eq!(program.lexer_mut().next_token(), Token::Equal);
+            Expr::Assignment(ident, Box::new(parse_tokens(program, 0)?))
+        } else {
+            Expr::Identifier(ident)
+        }
     } else if let Some(op) = UnaryOp::from_token(&first) {
-        Expr::Unary(op, Box::new(parse_tokens(lexer, 7)?))
+        Expr::Unary(op, Box::new(parse_tokens(program, 7)?))
     } else {
         return Err(InterpreterError::Syntax(format!("invalid token: {first}")));
     };
 
     loop {
-        let next = lexer.peek_next();
+        let next = program.lexer_mut().peek_next();
         let op = match next {
             Token::EOF => break,
             Token::RightParen => {
@@ -39,8 +47,8 @@ pub fn parse_tokens(lexer: &mut Lexer, min_bp: u8) -> Result<Expr, InterpreterEr
             break;
         }
 
-        lexer.next_token();
-        let rhs = parse_tokens(lexer, r_bp)?;
+        program.lexer_mut().next_token();
+        let rhs = parse_tokens(program, r_bp)?;
         lhs = Expr::Arithmetic(op, Box::new(lhs), Box::new(rhs));
     }
     Ok(lhs)

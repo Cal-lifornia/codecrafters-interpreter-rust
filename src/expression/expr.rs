@@ -6,6 +6,8 @@ pub enum Expr {
     Group(Box<Expr>),
     Unary(UnaryOp, Box<Expr>),
     Arithmetic(BinOp, Box<Expr>, Box<Expr>),
+    Identifier(String),
+    Assignment(String, Box<Expr>),
 }
 
 impl Display for Expr {
@@ -15,6 +17,8 @@ impl Display for Expr {
             Self::Group(expr) => write!(f, "(group {expr})"),
             Self::Unary(op, expr) => write!(f, "({op} {expr})"),
             Self::Arithmetic(op, left, right) => write!(f, "({op} {left} {right})"),
+            Self::Identifier(ident) => write!(f, "{ident}"),
+            Self::Assignment(ident, expr) => write!(f, "{ident} equals {expr}"),
         }
     }
 }

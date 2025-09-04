@@ -2,11 +2,11 @@ use std::fmt::Display;
 
 use crate::{
     error::InterpreterError,
-    expression::{BinOp, Expr, Literal, UnaryOp},
+    expression::{BinOp, Expr, Literal, UnaryOp}, statements::program::Program,
 };
 
 impl Expr {
-    pub fn evaluate(&self) -> EvaluateResult {
+    pub fn evaluate(program: &mut Program,&self) -> EvaluateResult {
         // println!("evaluate expr: {self}");
         match self {
             Expr::Literal(literal) => match literal {
