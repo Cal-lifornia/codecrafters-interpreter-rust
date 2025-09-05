@@ -2,9 +2,9 @@ use std::env;
 use std::fs;
 use std::process::exit;
 
+use codecrafters_interpreter::ast::parse_exprs;
 use codecrafters_interpreter::context::Context;
-use codecrafters_interpreter::expression::parse_tokens;
-use codecrafters_interpreter::statements::program::Program;
+use codecrafters_interpreter::program::Program;
 use codecrafters_interpreter::tokens::Lexer;
 use codecrafters_interpreter::tokens::Token;
 
@@ -44,7 +44,7 @@ fn main() {
             }
         }
         "parse" => match Lexer::new(filename) {
-            Ok(lexer) => match parse_tokens(&mut Context::new(lexer), 0) {
+            Ok(lexer) => match parse_exprs(&mut Context::new(lexer), 0) {
                 Ok(expr) => println!("{expr}"),
                 Err(err) => {
                     eprintln!("Error {err}");
@@ -57,7 +57,7 @@ fn main() {
             }
         },
         "evaluate" => match Program::new(filename) {
-            Ok(mut program) => match parse_tokens(&mut Context::new(program.lexer()), 0) {
+            Ok(mut program) => match parse_exprs(&mut Context::new(program.lexer()), 0) {
                 Ok(expr) => match expr.evaluate(&mut program) {
                     Ok(eval) => println!("{eval}"),
                     Err(err) => {
