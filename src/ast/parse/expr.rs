@@ -1,5 +1,8 @@
 use crate::{
-    ast::{parse::Parser, BinOp, Expr, Literal, UnaryOp},
+    ast::{
+        parse::{token_stream::TokenTree, Parser},
+        BinOp, Expr, Literal, UnaryOp,
+    },
     error::InterpreterError,
     tokens::{ReservedWord, Token},
 };
@@ -8,6 +11,7 @@ impl Parser {
     pub fn parse_expr(&mut self, min_bp: u8) -> Result<Expr, InterpreterError> {
         self.bump();
         let current = self.current_token.clone();
+        println!("current: {current}");
 
         let mut lhs = match current {
             Token::LeftParen => Expr::Group(Box::new(self.parse_expr(0)?)),
@@ -22,7 +26,7 @@ impl Parser {
                     }
                 } else {
                     return Err(InterpreterError::Syntax(format!(
-                        "invalid token: {}",
+                        "1st invalid token: {}",
                         self.current_token.clone()
                     )));
                 }
@@ -43,7 +47,7 @@ impl Parser {
                     Expr::Unary(op, Box::new(self.parse_expr(7)?))
                 } else {
                     return Err(InterpreterError::Syntax(format!(
-                        "invalid token: {}",
+                        "2nd invalid token: {}",
                         current.clone()
                     )));
                 }
@@ -51,16 +55,30 @@ impl Parser {
         };
 
         loop {
-            self.bump();
-            let op = match &self.current_token {
-                Token::EOF | Token::RightParen | Token::Semicolon => break,
+            let TokenTree::Token(next) = self
+                .cursor
+                .curr
+                .look_ahead(1)
+                .unwrap_or(&TokenTree::Token(Token::EOF))
+                .clone()
+            else {
+                break;
+            };
+
+            println!("next: {next}");
+
+            let op = match next {
+                Token::EOF | Token::RightParen | Token::Semicolon => {
+                    self.bump();
+                    break;
+                }
                 _ => {
-                    if let Some(op) = BinOp::from_token(&self.current_token) {
+                    if let Some(op) = BinOp::from_token(&next) {
                         op
                     } else {
                         return Err(InterpreterError::Syntax(format!(
-                            "invalid token: {}",
-                            self.current_token
+                            "3rd invalid token: {}",
+                            next
                         )));
                     }
                 }

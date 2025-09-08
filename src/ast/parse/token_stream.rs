@@ -164,9 +164,11 @@ impl TokenTreeCursor {
 
     pub fn bump(&mut self) {
         self.index += 1;
+        println!("bump: {}", self.index);
     }
 
     pub fn look_ahead(&self, idx: usize) -> Option<&TokenTree> {
+        println!("look ahead: {}", self.index + idx);
         self.stream.get(self.index + idx)
     }
 }
