@@ -18,7 +18,7 @@ pub fn parse_exprs(ctx: &mut Context, min_bp: u8) -> Result<Expr, InterpreterErr
         }
         Token::Reserved(ReservedWord::Var) => {
             if let Token::Identifier(ident) = ctx.statement().next_token() {
-                if ctx.statement().peek_next() == &Token::Equal {
+                if ctx.statement().peek_next() == Token::Equal {
                     assert_eq!(ctx.statement().next_token(), Token::Equal);
                     Expr::Assignment(ident, Box::new(parse_exprs(ctx, 0)?))
                 } else {
@@ -29,7 +29,7 @@ pub fn parse_exprs(ctx: &mut Context, min_bp: u8) -> Result<Expr, InterpreterErr
             }
         }
         Token::Identifier(ident) => {
-            if ctx.statement().peek_next() == &Token::Equal {
+            if ctx.statement().peek_next() == Token::Equal {
                 assert_eq!(ctx.statement().next_token(), Token::Equal);
                 Expr::Assignment(ident, Box::new(parse_exprs(ctx, 0)?))
             } else {
@@ -58,7 +58,7 @@ pub fn parse_exprs(ctx: &mut Context, min_bp: u8) -> Result<Expr, InterpreterErr
         let op = match next {
             Token::EOF | Token::RightParen | Token::Semicolon => break,
             _ => {
-                if let Some(op) = BinOp::from_token(next) {
+                if let Some(op) = BinOp::from_token(&next) {
                     op
                 } else {
                     return Err(InterpreterError::Syntax(format!("invalid token: {next}")));

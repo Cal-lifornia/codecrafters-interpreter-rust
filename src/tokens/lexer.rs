@@ -26,14 +26,14 @@ impl Lexer {
             Token::EOF
         }
     }
-    pub fn peek_next(&mut self) -> &Token {
-        self.tokens.first().unwrap_or(&Token::EOF)
+    pub fn peek_next(&self) -> Token {
+        self.tokens.first().cloned().unwrap_or(Token::EOF)
     }
     pub fn tokens(&self) -> Vec<Token> {
         self.tokens.clone()
     }
-    pub fn peek_last(&self) -> &Token {
-        self.tokens.last().unwrap_or(&Token::EOF)
+    pub fn peek_last(&self) -> Token {
+        self.tokens.last().cloned().unwrap_or(Token::EOF)
     }
     pub fn pop_last(&mut self) -> Token {
         self.tokens.pop().unwrap_or(Token::EOF)
