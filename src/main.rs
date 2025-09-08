@@ -2,9 +2,11 @@ use std::env;
 use std::fs;
 use std::process::exit;
 
-use codecrafters_interpreter::ast::parse_exprs;
-use codecrafters_interpreter::context::Context;
+use codecrafters_interpreter::ast::parse::token_stream::TokenStream;
+use codecrafters_interpreter::ast::parse::Parser;
+use codecrafters_interpreter::error::InterpreterError;
 use codecrafters_interpreter::program::Program;
+use codecrafters_interpreter::tokens::parse_tokens;
 use codecrafters_interpreter::tokens::Lexer;
 use codecrafters_interpreter::tokens::Token;
 
@@ -18,7 +20,14 @@ fn main() {
     let command = &args[1];
     let filename = &args[2];
 
-    match command.as_str() {
+    if let Err(err) = run_interpreter(command, filename) {
+        eprintln!("{err}");
+        exit(err.exit_code())
+    }
+}
+
+fn run_interpreter(command: &str, filename: &str) -> Result<(), InterpreterError> {
+    match command {
         "tokenize" => {
             let file_contents = fs::read_to_string(filename).unwrap_or_else(|_| {
                 eprintln!("Failed to read file {}", filename);
@@ -27,7 +36,7 @@ fn main() {
 
             if !file_contents.is_empty() {
                 let mut err_present = false;
-                let (tokens, errs) = Token::tokenize(&file_contents);
+                let (tokens, errs) = parse_tokens(&file_contents);
                 if !errs.is_empty() {
                     err_present = true;
                     errs.iter().for_each(|err| {
@@ -38,58 +47,42 @@ fn main() {
                 println!("{}", Token::EOF);
                 if err_present {
                     exit(65)
+                } else {
+                    Ok(())
                 }
             } else {
                 println!("EOF  null"); // Placeholder, replace this line when implementing the scanner
+                Ok(())
             }
         }
-        "parse" => match Lexer::new(filename) {
-            Ok(lexer) => match parse_exprs(&mut Context::new(lexer), 0) {
-                Ok(expr) => println!("{expr}"),
-                Err(err) => {
-                    eprintln!("Error {err}");
-                    exit(65)
-                }
-            },
-            Err(err) => {
-                eprintln!("Error {err}");
-                exit(65)
-            }
-        },
-        "evaluate" => match Program::new(filename) {
-            Ok(mut program) => match parse_exprs(&mut Context::new(program.lexer()), 0) {
-                Ok(expr) => match expr.evaluate(&mut program) {
-                    Ok(eval) => println!("{eval}"),
-                    Err(err) => {
-                        eprintln!("{err}");
-                        exit(err.exit_code())
-                    }
-                },
-                Err(err) => {
-                    eprintln!("Error {err}");
-                    exit(err.exit_code())
-                }
-            },
-            Err(err) => {
-                eprintln!("Error {err}");
-                exit(err.exit_code())
-            }
-        },
-        "run" => match Program::new(filename) {
-            Ok(mut program) => {
-                if let Err(err) = program.run() {
-                    eprintln!("{err}");
-                    exit(err.exit_code())
-                }
-            }
-            Err(err) => {
-                eprintln!("{err}");
-                exit(err.exit_code())
-            }
-        },
-
+        "parse" => {
+            let mut lexer = Lexer::new(filename)?;
+            let mut parser = Parser::new(TokenStream::from_lexer(&mut lexer));
+            println!("{}", parser.parse_expr(0)?);
+            Ok(())
+        }
+        "evaluate" => {
+            let mut lexer = Lexer::new(filename)?;
+            let mut parser = Parser::new(TokenStream::from_lexer(&mut lexer));
+            let expr = parser.parse_expr(0)?;
+            let mut program = Program::default();
+            println!("{}", expr.evaluate(&mut program)?);
+            Ok(())
+        }
+        // "run" => match Program::new(filename) {
+        //     Ok(mut program) => {
+        //         if let Err(err) = program.run() {
+        //             eprintln!("{err}");
+        //             exit(err.exit_code())
+        //         }
+        //     }
+        //     Err(err) => {
+        //         eprintln!("{err}");
+        //         exit(err.exit_code())
+        //     }
+        // },
         _ => {
-            eprintln!("Unknown command: {}", command);
+            Err(InterpreterError::Runtime("unknown command".to_string()))
             // return;
         }
     }

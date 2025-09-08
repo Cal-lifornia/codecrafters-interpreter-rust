@@ -1,6 +1,9 @@
 use std::fmt::Display;
 
-use crate::{error::InterpreterError, tokens::Token};
+use crate::{
+    error::InterpreterError,
+    tokens::{tokenize::parse_tokens, Token},
+};
 
 #[derive(Debug, Clone)]
 pub struct Lexer {
@@ -12,7 +15,7 @@ impl Lexer {
         let file_contents = std::fs::read_to_string(file)
             .map_err(|err| InterpreterError::Syntax(err.to_string()))?;
 
-        let (tokens, errs) = Token::tokenize(&file_contents);
+        let (tokens, errs) = parse_tokens(&file_contents);
         if !errs.is_empty() {
             return Err(errs[0].clone());
         }
