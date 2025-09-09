@@ -34,6 +34,9 @@ pub enum Token {
     EOF,
 }
 impl Token {
+    pub fn dummy() -> Self {
+        Self::Comma
+    }
     pub fn from_single_char(value: char) -> Option<Token> {
         use Token::*;
         let out = match value {

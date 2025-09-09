@@ -86,6 +86,11 @@ impl Expr {
                 }
                 Ok(value)
             }
+            Expr::Print(expr) => {
+                let value = expr.evaluate(program)?;
+                println!("{value}");
+                Ok(EvaluateValue::Empty)
+            }
         }
     }
 }

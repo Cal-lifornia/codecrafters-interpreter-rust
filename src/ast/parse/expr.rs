@@ -1,41 +1,56 @@
 use crate::{
-    ast::{
-        parse::{token_stream::TokenTree, Parser},
-        BinOp, Expr, Literal, UnaryOp,
-    },
+    ast::{parse::Parser, BinOp, Expr, Literal, UnaryOp},
     error::InterpreterError,
     tokens::{ReservedWord, Token},
 };
 
 impl Parser {
     pub fn parse_expr(&mut self, min_bp: u8) -> Result<Expr, InterpreterError> {
-        self.bump();
         let current = self.current_token.clone();
-        println!("current: {current}");
 
         let mut lhs = match current {
-            Token::LeftParen => Expr::Group(Box::new(self.parse_expr(0)?)),
+            Token::LeftParen => {
+                // Bump past left paren
+                self.bump();
+                let group = Expr::Group(Box::new(self.parse_expr(0)?));
+                let next = self.look_ahead(1);
+                if next == Token::RightParen {
+                    // Bump past right paren
+                    self.bump();
+                    group
+                } else {
+                    return Err(InterpreterError::Syntax("missing ')'".to_string()));
+                }
+            }
+
             Token::Reserved(ReservedWord::Var) => {
                 self.bump();
-                if let Token::Identifier(ident) = current {
-                    self.bump();
-                    if self.current_token == Token::Equal {
+                if let Token::Identifier(ident) = self.current_token.clone() {
+                    let next = self.look_ahead(1);
+                    if next == Token::Equal {
+                        self.bump();
+                        self.bump();
                         Expr::Assignment(ident.clone(), Box::new(self.parse_expr(0)?))
                     } else {
                         Expr::Assignment(ident.clone(), Box::new(Expr::Literal(Literal::Nil)))
                     }
                 } else {
                     return Err(InterpreterError::Syntax(format!(
-                        "1st invalid token: {}",
+                        "invalid token: {}",
                         self.current_token.clone()
                     )));
                 }
             }
-            Token::Identifier(ident) => {
+            Token::Reserved(ReservedWord::Print) => {
                 self.bump();
-                if self.current_token == Token::Equal {
+                Expr::Print(Box::new(self.parse_expr(0)?))
+            }
+            Token::Identifier(ident) => {
+                let next = self.look_ahead(1);
+                if next == Token::Equal {
                     self.bump();
-                    Expr::Assignment(ident.clone(), Box::new(self.parse_expr(7)?))
+                    self.bump();
+                    Expr::Assignment(ident.clone(), Box::new(self.parse_expr(0)?))
                 } else {
                     Expr::Variable(ident.clone())
                 }
@@ -44,10 +59,11 @@ impl Parser {
                 if let Some(literal) = Literal::from_token(&current) {
                     Expr::Literal(literal)
                 } else if let Some(op) = UnaryOp::from_token(&current) {
+                    self.bump();
                     Expr::Unary(op, Box::new(self.parse_expr(7)?))
                 } else {
                     return Err(InterpreterError::Syntax(format!(
-                        "2nd invalid token: {}",
+                        "invalid token: {}",
                         current.clone()
                     )));
                 }
@@ -55,31 +71,17 @@ impl Parser {
         };
 
         loop {
-            let TokenTree::Token(next) = self
-                .cursor
-                .curr
-                .look_ahead(1)
-                .unwrap_or(&TokenTree::Token(Token::EOF))
-                .clone()
-            else {
-                break;
-            };
-
-            println!("next: {next}");
+            let next = self.look_ahead(1);
 
             let op = match next {
                 Token::EOF | Token::RightParen | Token::Semicolon => {
-                    self.bump();
                     break;
                 }
                 _ => {
                     if let Some(op) = BinOp::from_token(&next) {
                         op
                     } else {
-                        return Err(InterpreterError::Syntax(format!(
-                            "3rd invalid token: {}",
-                            next
-                        )));
+                        return Err(InterpreterError::Syntax(format!("invalid token: {}", next)));
                     }
                 }
             };
@@ -88,6 +90,9 @@ impl Parser {
             if l_bp < min_bp {
                 break;
             }
+
+            self.bump(); // Bump past op
+            self.bump(); // Bump to update current token for parse
 
             let rhs = self.parse_expr(r_bp)?;
             lhs = Expr::Arithmetic(op, Box::new(lhs), Box::new(rhs));
@@ -99,9 +104,9 @@ impl BinOp {
     pub fn infix_binding_power(&self) -> (u8, u8) {
         use BinOp::*;
         match self {
+            Lt | Le | Gt | Ge | Eq | Ne => (1, 2),
             Add | Sub => (3, 4),
             Mul | Div => (5, 6),
-            Lt | Le | Gt | Ge | Eq | Ne => (1, 2),
         }
     }
 }

@@ -57,30 +57,27 @@ fn run_interpreter(command: &str, filename: &str) -> Result<(), InterpreterError
         }
         "parse" => {
             let mut lexer = Lexer::new(filename)?;
-            let mut parser = Parser::new(TokenStream::from_lexer(&mut lexer));
+            let mut parser = Parser::new(TokenStream::direct_from_lexer(&mut lexer));
             println!("{}", parser.parse_expr(0)?);
             Ok(())
         }
         "evaluate" => {
             let mut lexer = Lexer::new(filename)?;
-            let mut parser = Parser::new(TokenStream::from_lexer(&mut lexer));
+            let mut parser = Parser::new(TokenStream::direct_from_lexer(&mut lexer));
             let expr = parser.parse_expr(0)?;
-            let mut program = Program::default();
+            let mut program = Program::empty();
             println!("{}", expr.evaluate(&mut program)?);
             Ok(())
         }
-        // "run" => match Program::new(filename) {
-        //     Ok(mut program) => {
-        //         if let Err(err) = program.run() {
-        //             eprintln!("{err}");
-        //             exit(err.exit_code())
-        //         }
-        //     }
-        //     Err(err) => {
-        //         eprintln!("{err}");
-        //         exit(err.exit_code())
-        //     }
-        // },
+        "run" => {
+            let mut program = Program::new(filename)?;
+            if let Err(err) = program.run() {
+                eprintln!("{err}");
+                exit(err.exit_code())
+            } else {
+                Ok(())
+            }
+        }
         _ => {
             Err(InterpreterError::Runtime("unknown command".to_string()))
             // return;

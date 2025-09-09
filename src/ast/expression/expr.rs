@@ -8,6 +8,7 @@ pub enum Expr {
     Arithmetic(BinOp, Box<Expr>, Box<Expr>),
     Variable(String),
     Assignment(String, Box<Expr>),
+    Print(Box<Expr>),
 }
 
 impl Display for Expr {
@@ -19,6 +20,7 @@ impl Display for Expr {
             Self::Arithmetic(op, left, right) => write!(f, "({op} {left} {right})"),
             Self::Variable(ident) => write!(f, "{ident}"),
             Self::Assignment(ident, expr) => write!(f, "{ident} equals {expr}"),
+            Self::Print(expr) => write!(f, "printing {expr}"),
         }
     }
 }

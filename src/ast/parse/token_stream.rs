@@ -13,7 +13,7 @@ impl TokenStream {
         Self(Rc::new(trees))
     }
 
-    pub fn from_lexer(lexer: &mut Lexer) -> Self {
+    pub fn direct_from_lexer(lexer: &mut Lexer) -> Self {
         let mut next = lexer.next_token();
         let mut stream = vec![];
         loop {
@@ -29,6 +29,10 @@ impl TokenStream {
 
     pub fn get(&self, idx: usize) -> Option<&TokenTree> {
         self.0.get(idx)
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
     }
 }
 
@@ -66,14 +70,26 @@ impl Delimiter {
     }
 }
 
-pub fn create_token_tree(lexer: &mut Lexer) -> Result<TokenTree, InterpreterError> {
+pub fn generate_token_stream(lexer: &mut Lexer) -> Result<TokenStream, InterpreterError> {
+    let mut stream = vec![];
+    loop {
+        if lexer.peek_next() == Token::EOF {
+            break;
+        } else {
+            stream.push(create_token_tree(lexer)?);
+        }
+    }
+    Ok(TokenStream::new(stream))
+}
+
+fn create_token_tree(lexer: &mut Lexer) -> Result<TokenTree, InterpreterError> {
     let first = lexer.next_token();
     match first {
         Token::LeftParen => {
             let mut stream = vec![];
             stream.push(TokenTree::Token(first));
-            let next = lexer.peek_next();
             loop {
+                let next = lexer.peek_next();
                 if next == Token::RightParen {
                     stream.push(TokenTree::Token(lexer.next_token()));
                     break;
@@ -90,9 +106,9 @@ pub fn create_token_tree(lexer: &mut Lexer) -> Result<TokenTree, InterpreterErro
         }
         Token::LeftBrace => {
             let mut stream = vec![];
-            let next = lexer.peek_next();
             stream.push(TokenTree::Token(first));
             loop {
+                let next = lexer.peek_next();
                 if next == Token::RightBrace {
                     stream.push(TokenTree::Token(lexer.next_token()));
                     break;
@@ -164,11 +180,9 @@ impl TokenTreeCursor {
 
     pub fn bump(&mut self) {
         self.index += 1;
-        println!("bump: {}", self.index);
     }
 
     pub fn look_ahead(&self, idx: usize) -> Option<&TokenTree> {
-        println!("look ahead: {}", self.index + idx);
         self.stream.get(self.index + idx)
     }
 }
