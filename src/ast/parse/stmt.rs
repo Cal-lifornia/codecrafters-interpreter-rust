@@ -49,8 +49,26 @@ impl Parser {
         let kind = if matches!(self.current_token, Token::LeftBrace) {
             IfKind::Block(self.parse_block()?)
         } else {
-            IfKind::Expr(Box::new(self.parse_expr(0)?))
+            IfKind::Stmt(Box::new(self.parse_stmt()?))
         };
-        Ok(Stmt::If(group, kind))
+        if self.current_token == Token::Reserved(ReservedWord::Else) {
+            self.bump();
+            let else_kind = if matches!(self.current_token, Token::LeftBrace) {
+                IfKind::Block(self.parse_block()?)
+            } else {
+                IfKind::Stmt(Box::new(self.parse_stmt()?))
+            };
+            Ok(Stmt::If {
+                cond: group,
+                if_kind: kind,
+                if_else: Some(else_kind),
+            })
+        } else {
+            Ok(Stmt::If {
+                cond: group,
+                if_kind: kind,
+                if_else: None,
+            })
+        }
     }
 }

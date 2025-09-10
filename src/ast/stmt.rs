@@ -7,7 +7,11 @@ use crate::{
 pub enum Stmt {
     Expr(Expr),
     Block(Block),
-    If(Group, IfKind),
+    If {
+        cond: Group,
+        if_kind: IfKind,
+        if_else: Option<IfKind>,
+    },
 }
 
 impl Stmt {
@@ -19,16 +23,15 @@ impl Stmt {
             Stmt::Block(block) => {
                 block.run(scope)?;
             }
-            Stmt::If(group, kind) => {
-                if matches!(group.0.evaluate(scope)?, EvaluateValue::Boolean(true)) {
-                    match kind {
-                        IfKind::Expr(expr) => {
-                            expr.evaluate(scope)?;
-                        }
-                        IfKind::Block(block) => {
-                            block.run(scope)?;
-                        }
-                    }
+            Stmt::If {
+                cond,
+                if_kind,
+                if_else,
+            } => {
+                if matches!(cond.0.evaluate(scope)?, EvaluateValue::Boolean(true)) {
+                    if_kind.run(scope)?;
+                } else if let Some(else_kind) = if_else {
+                    else_kind.run(scope)?;
                 }
             }
         }
@@ -54,6 +57,20 @@ impl Block {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum IfKind {
-    Expr(Box<Expr>),
+    Stmt(Box<Stmt>),
     Block(Block),
+}
+
+impl IfKind {
+    pub fn run(&self, scope: &mut Scope) -> Result<(), InterpreterError> {
+        match self {
+            IfKind::Stmt(stmt) => {
+                stmt.run(scope)?;
+            }
+            IfKind::Block(block) => {
+                block.run(scope)?;
+            }
+        }
+        Ok(())
+    }
 }
