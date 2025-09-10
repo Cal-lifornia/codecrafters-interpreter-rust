@@ -32,7 +32,7 @@ impl ScopeCursor {
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct Scope {
     local: ScopeCursor,
     stack: Vec<ScopeCursor>,

@@ -87,12 +87,15 @@ impl Expr {
                 }
 
                 LogicOp::And => {
-                    let (left_val, right_val) = (left.evaluate(scope)?, right.evaluate(scope)?);
-                    if left_val.is_truthy() && right_val.is_truthy() {
-                        Ok(left_val)
-                    } else {
-                        Ok(EvaluateValue::Boolean(false))
+                    let left_val = left.evaluate(scope)?;
+                    if !left_val.is_truthy() {
+                        return Ok(EvaluateValue::Boolean(false));
                     }
+                    let right_val = right.evaluate(scope)?;
+                    if right_val.is_truthy() {
+                        return Ok(right_val);
+                    }
+                    Ok(EvaluateValue::Boolean(false))
                 }
             },
             Expr::Variable(ident) => match scope.find(ident) {
