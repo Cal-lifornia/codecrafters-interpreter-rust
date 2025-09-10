@@ -7,7 +7,8 @@ pub enum Expr {
     Unary(UnaryOp, Box<Expr>),
     Arithmetic(BinOp, Box<Expr>, Box<Expr>),
     Variable(String),
-    Assignment(String, Box<Expr>),
+    InitVar(String, Box<Expr>),
+    UpdateVar(String, Box<Expr>),
     Print(Box<Expr>),
 }
 
@@ -19,7 +20,8 @@ impl Display for Expr {
             Self::Unary(op, expr) => write!(f, "({op} {expr})"),
             Self::Arithmetic(op, left, right) => write!(f, "({op} {left} {right})"),
             Self::Variable(ident) => write!(f, "{ident}"),
-            Self::Assignment(ident, expr) => write!(f, "{ident} equals {expr}"),
+            Self::InitVar(ident, expr) => write!(f, "{ident} equals {expr}"),
+            Self::UpdateVar(ident, expr) => write!(f, "updating {ident} to {expr}"),
             Self::Print(expr) => write!(f, "printing {expr}"),
         }
     }

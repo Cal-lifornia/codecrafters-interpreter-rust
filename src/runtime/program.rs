@@ -1,0 +1,27 @@
+use crate::{
+    ast::parse::{token_stream::generate_token_stream, Parser},
+    error::InterpreterError,
+    runtime::scope::Scope,
+    tokens::{Lexer, Token},
+};
+
+pub fn run_program(filename: &str) -> Result<(), InterpreterError> {
+    let mut ast = vec![];
+    let mut lexer = Lexer::new(filename)?;
+    let stream = generate_token_stream(&mut lexer)?;
+    let mut parser = Parser::new(stream);
+    loop {
+        if parser.current_token == Token::EOF {
+            break;
+        } else {
+            ast.push(parser.parse_stmt()?);
+        }
+    }
+
+    let mut scope = Scope::default();
+
+    for stmt in ast.clone() {
+        stmt.run(&mut scope)?;
+    }
+    Ok(())
+}

@@ -30,9 +30,9 @@ impl Parser {
                     if next == Token::Equal {
                         self.bump();
                         self.bump();
-                        Expr::Assignment(ident.clone(), Box::new(self.parse_expr(0)?))
+                        Expr::InitVar(ident.clone(), Box::new(self.parse_expr(0)?))
                     } else {
-                        Expr::Assignment(ident.clone(), Box::new(Expr::Literal(Literal::Nil)))
+                        Expr::InitVar(ident.clone(), Box::new(Expr::Literal(Literal::Nil)))
                     }
                 } else {
                     return Err(InterpreterError::Syntax(format!(
@@ -50,7 +50,7 @@ impl Parser {
                 if next == Token::Equal {
                     self.bump();
                     self.bump();
-                    Expr::Assignment(ident.clone(), Box::new(self.parse_expr(0)?))
+                    Expr::UpdateVar(ident.clone(), Box::new(self.parse_expr(0)?))
                 } else {
                     Expr::Variable(ident.clone())
                 }

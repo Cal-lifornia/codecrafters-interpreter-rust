@@ -1,4 +1,4 @@
-use crate::{ast::Expr, error::InterpreterError, program::Program};
+use crate::{ast::Expr, error::InterpreterError, runtime::scope::Scope};
 
 #[derive(Debug, Clone)]
 pub struct Block {
@@ -12,15 +12,17 @@ pub enum Stmt {
 }
 
 impl Stmt {
-    pub fn run(&self, program: &mut Program) -> Result<(), InterpreterError> {
+    pub fn run(&self, scope: &mut Scope) -> Result<(), InterpreterError> {
         match self {
             Stmt::Expr(expr) => {
-                expr.evaluate(program)?;
+                expr.evaluate(scope)?;
             }
             Stmt::Block(block) => {
+                scope.add_local();
                 for stmt in block.clone().stmts {
-                    stmt.run(program)?;
+                    stmt.run(scope)?;
                 }
+                scope.drop_local();
             }
         }
         Ok(())

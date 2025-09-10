@@ -5,7 +5,8 @@ use std::process::exit;
 use codecrafters_interpreter::ast::parse::token_stream::TokenStream;
 use codecrafters_interpreter::ast::parse::Parser;
 use codecrafters_interpreter::error::InterpreterError;
-use codecrafters_interpreter::program::Program;
+use codecrafters_interpreter::runtime::program::run_program;
+use codecrafters_interpreter::runtime::scope::Scope;
 use codecrafters_interpreter::tokens::parse_tokens;
 use codecrafters_interpreter::tokens::Lexer;
 use codecrafters_interpreter::tokens::Token;
@@ -65,13 +66,12 @@ fn run_interpreter(command: &str, filename: &str) -> Result<(), InterpreterError
             let mut lexer = Lexer::new(filename)?;
             let mut parser = Parser::new(TokenStream::direct_from_lexer(&mut lexer));
             let expr = parser.parse_expr(0)?;
-            let mut program = Program::empty();
-            println!("{}", expr.evaluate(&mut program)?);
+            let mut scope = Scope::default();
+            println!("{}", expr.evaluate(&mut scope)?);
             Ok(())
         }
         "run" => {
-            let mut program = Program::new(filename)?;
-            if let Err(err) = program.run() {
+            if let Err(err) = run_program(filename) {
                 eprintln!("{err}");
                 exit(err.exit_code())
             } else {

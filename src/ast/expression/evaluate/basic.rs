@@ -3,12 +3,11 @@ use std::fmt::Display;
 use crate::{
     ast::expression::{BinOp, Expr, Literal, UnaryOp},
     error::InterpreterError,
-    program::Program,
+    runtime::scope::Scope,
 };
 
 impl Expr {
-    pub fn evaluate(&self, program: &mut Program) -> EvaluateResult {
-        // println!("evaluate expr: {self}");
+    pub fn evaluate(&self, scope: &mut Scope) -> EvaluateResult {
         match self {
             Expr::Literal(literal) => match literal {
                 Literal::Number(num) => Ok(EvaluateValue::Number(*num)),
@@ -17,9 +16,9 @@ impl Expr {
                 Literal::False => Ok(EvaluateValue::Boolean(false)),
                 Literal::Nil => Ok(EvaluateValue::Nil),
             },
-            Expr::Group(expr) => expr.evaluate(program),
+            Expr::Group(expr) => expr.evaluate(scope),
             Expr::Unary(unary_op, expr) => match unary_op {
-                UnaryOp::Bang => match expr.evaluate(program)? {
+                UnaryOp::Bang => match expr.evaluate(scope)? {
                     EvaluateValue::String(_) => Ok(EvaluateValue::Boolean(false)),
                     EvaluateValue::Number(_) => Ok(EvaluateValue::Boolean(false)),
                     EvaluateValue::Boolean(val) => Ok(EvaluateValue::Boolean(!val)),
@@ -28,7 +27,7 @@ impl Expr {
                         "Incorrect expression type".to_string(),
                     )),
                 },
-                UnaryOp::Minus => match expr.evaluate(program)? {
+                UnaryOp::Minus => match expr.evaluate(scope)? {
                     EvaluateValue::Number(num) => Ok(EvaluateValue::Number(-num)),
                     _ => Err(InterpreterError::Runtime(
                         "Operand must be a number".to_string(),
@@ -36,7 +35,7 @@ impl Expr {
                 },
             },
             Expr::Arithmetic(op, left, right) => {
-                match (left.evaluate(program)?, right.evaluate(program)?) {
+                match (left.evaluate(scope)?, right.evaluate(scope)?) {
                     (EvaluateValue::Number(num_left), EvaluateValue::Number(num_right)) => match op
                     {
                         BinOp::Add => Ok(EvaluateValue::Number(num_left + num_right)),
@@ -71,23 +70,25 @@ impl Expr {
                     },
                 }
             }
-            Expr::Variable(ident) => match program.variables.get(ident) {
+            Expr::Variable(ident) => match scope.find(ident) {
                 Some(val) => Ok(val.clone()),
                 None => Err(InterpreterError::Runtime(format!(
                     "Undefined variable '{ident}'"
                 ))),
             },
-            Expr::Assignment(ident, expr) => {
-                let value = expr.evaluate(program)?;
-                if let Some(val) = program.variables.get_mut(ident) {
-                    *val = value.clone();
-                } else {
-                    let _ = program.variables.insert(ident.to_string(), value.clone());
-                }
+            Expr::InitVar(ident, expr) => {
+                let value = expr.evaluate(scope)?;
+                // println!("setting {ident} to {value}");
+                scope.insert(ident.to_string(), value.clone());
+                Ok(value)
+            }
+            Expr::UpdateVar(ident, expr) => {
+                let value = expr.evaluate(scope)?;
+                scope.update(ident, value.clone())?;
                 Ok(value)
             }
             Expr::Print(expr) => {
-                let value = expr.evaluate(program)?;
+                let value = expr.evaluate(scope)?;
                 println!("{value}");
                 Ok(EvaluateValue::Empty)
             }
