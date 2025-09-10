@@ -73,27 +73,28 @@ impl Expr {
                     },
                 }
             }
-            Expr::Conditional(op, left, right) => {
-                let (left_val, right_val) = (left.evaluate(scope)?, right.evaluate(scope)?);
-                match op {
-                    LogicOp::Or => {
-                        if left_val.is_truthy() {
-                            Ok(left_val)
-                        } else if right_val.is_truthy() {
-                            Ok(right_val)
-                        } else {
-                            Ok(EvaluateValue::Truthy(false))
-                        }
+            Expr::Conditional(op, left, right) => match op {
+                LogicOp::Or => {
+                    let left_val = left.evaluate(scope)?;
+                    if left_val.is_truthy() {
+                        return Ok(left_val);
                     }
-                    LogicOp::And => {
-                        if left_val.is_truthy() && right_val.is_truthy() {
-                            Ok(left_val)
-                        } else {
-                            Ok(EvaluateValue::Truthy(false))
-                        }
+                    let right_val = right.evaluate(scope)?;
+                    if right_val.is_truthy() {
+                        return Ok(right_val);
+                    }
+                    Ok(EvaluateValue::Boolean(false))
+                }
+
+                LogicOp::And => {
+                    let (left_val, right_val) = (left.evaluate(scope)?, right.evaluate(scope)?);
+                    if left_val.is_truthy() && right_val.is_truthy() {
+                        Ok(left_val)
+                    } else {
+                        Ok(EvaluateValue::Boolean(false))
                     }
                 }
-            }
+            },
             Expr::Variable(ident) => match scope.find(ident) {
                 Some(val) => Ok(val.clone()),
                 None => Err(InterpreterError::Runtime(format!(
@@ -127,7 +128,6 @@ pub enum EvaluateValue {
     String(String),
     Number(f64),
     Boolean(bool),
-    Truthy(bool),
     Nil,
     Empty,
 }
@@ -137,8 +137,7 @@ impl EvaluateValue {
         match self {
             EvaluateValue::String(_) => true,
             EvaluateValue::Number(_) => true,
-            EvaluateValue::Boolean(_) => true,
-            EvaluateValue::Truthy(val) => *val,
+            EvaluateValue::Boolean(val) => *val,
             EvaluateValue::Nil => false,
             EvaluateValue::Empty => false,
         }
@@ -151,7 +150,6 @@ impl Display for EvaluateValue {
             Self::String(val) => write!(f, "{val}"),
             Self::Number(val) => write!(f, "{val}"),
             Self::Boolean(val) => write!(f, "{val}"),
-            Self::Truthy(val) => write!(f, "{val}"),
             Self::Nil => write!(f, "nil"),
             Self::Empty => write!(f, ""),
         }

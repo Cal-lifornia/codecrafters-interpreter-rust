@@ -25,7 +25,7 @@ impl Parser {
             Expr::Literal(literal)
         } else if let Some(op) = UnaryOp::from_token(&current) {
             self.bump();
-            Expr::Unary(op, Box::new(self.parse_expr(7)?))
+            Expr::Unary(op, Box::new(self.parse_expr(9)?))
         } else {
             match current {
                 Token::LeftParen => Expr::Group(Box::new(self.parse_group()?)),
