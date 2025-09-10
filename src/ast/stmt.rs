@@ -7,11 +7,8 @@ use crate::{
 pub enum Stmt {
     Expr(Expr),
     Block(Block),
-    If {
-        cond: Group,
-        if_kind: IfKind,
-        if_else: Option<IfKind>,
-    },
+    If(Group, ControlFlowStmt, Option<ControlFlowStmt>),
+    WhileLoop(Group, ControlFlowStmt),
 }
 
 impl Stmt {
@@ -23,15 +20,16 @@ impl Stmt {
             Stmt::Block(block) => {
                 block.run(scope)?;
             }
-            Stmt::If {
-                cond,
-                if_kind,
-                if_else,
-            } => {
+            Stmt::If(cond, if_kind, if_else) => {
                 if cond.0.evaluate(scope)?.is_truthy() {
                     if_kind.run(scope)?;
                 } else if let Some(else_kind) = if_else {
                     else_kind.run(scope)?;
+                }
+            }
+            Stmt::WhileLoop(cond, kind) => {
+                while cond.0.evaluate(scope)?.is_truthy() {
+                    kind.run(scope)?;
                 }
             }
         }
@@ -56,18 +54,18 @@ impl Block {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum IfKind {
+pub enum ControlFlowStmt {
     Stmt(Box<Stmt>),
     Block(Block),
 }
 
-impl IfKind {
+impl ControlFlowStmt {
     pub fn run(&self, scope: &mut Scope) -> Result<(), InterpreterError> {
         match self {
-            IfKind::Stmt(stmt) => {
+            ControlFlowStmt::Stmt(stmt) => {
                 stmt.run(scope)?;
             }
-            IfKind::Block(block) => {
+            ControlFlowStmt::Block(block) => {
                 block.run(scope)?;
             }
         }

@@ -1,7 +1,7 @@
 use crate::{
     ast::{
         parse::Parser,
-        stmt::{Block, IfKind, Stmt},
+        stmt::{Block, ControlFlowStmt, Stmt},
     },
     error::InterpreterError,
     tokens::{ReservedWord, Token},
@@ -26,6 +26,7 @@ impl Parser {
         match self.current_token {
             Token::LeftBrace => Ok(Stmt::Block(self.parse_block()?)),
             Token::Reserved(ReservedWord::If) => self.parse_if(),
+            Token::Reserved(ReservedWord::While) => self.parse_while_loop(),
             _ => {
                 let stmt = self.parse_expr(0)?;
                 let next = self.look_ahead(1);
@@ -39,6 +40,13 @@ impl Parser {
             }
         }
     }
+    pub fn parse_control_flow_stmt(&mut self) -> Result<ControlFlowStmt, InterpreterError> {
+        if matches!(self.current_token, Token::LeftBrace) {
+            Ok(ControlFlowStmt::Block(self.parse_block()?))
+        } else {
+            Ok(ControlFlowStmt::Stmt(Box::new(self.parse_stmt()?)))
+        }
+    }
     pub fn parse_if(&mut self) -> Result<Stmt, InterpreterError> {
         assert_eq!(self.current_token, Token::Reserved(ReservedWord::If));
         self.bump();
@@ -46,29 +54,25 @@ impl Parser {
         let group = self.parse_group()?;
         self.bump();
 
-        let kind = if matches!(self.current_token, Token::LeftBrace) {
-            IfKind::Block(self.parse_block()?)
-        } else {
-            IfKind::Stmt(Box::new(self.parse_stmt()?))
-        };
-        if self.current_token == Token::Reserved(ReservedWord::Else) {
+        let kind = self.parse_control_flow_stmt()?;
+        let if_else = if self.current_token == Token::Reserved(ReservedWord::Else) {
             self.bump();
-            let else_kind = if matches!(self.current_token, Token::LeftBrace) {
-                IfKind::Block(self.parse_block()?)
-            } else {
-                IfKind::Stmt(Box::new(self.parse_stmt()?))
-            };
-            Ok(Stmt::If {
-                cond: group,
-                if_kind: kind,
-                if_else: Some(else_kind),
-            })
+            Some(self.parse_control_flow_stmt()?)
         } else {
-            Ok(Stmt::If {
-                cond: group,
-                if_kind: kind,
-                if_else: None,
-            })
-        }
+            None
+        };
+        Ok(Stmt::If(group, kind, if_else))
+    }
+
+    pub fn parse_while_loop(&mut self) -> Result<Stmt, InterpreterError> {
+        assert_eq!(self.current_token, Token::Reserved(ReservedWord::While));
+        self.bump();
+
+        let group = self.parse_group()?;
+        self.bump();
+
+        let kind = self.parse_control_flow_stmt()?;
+
+        Ok(Stmt::WhileLoop(group, kind))
     }
 }
