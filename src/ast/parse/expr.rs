@@ -1,5 +1,5 @@
 use crate::{
-    ast::{parse::Parser, BinOp, Expr, Group, Literal, UnaryOp},
+    ast::{parse::Parser, BinOp, Expr, Group, Literal, LogicalOp, UnaryOp},
     error::InterpreterError,
     tokens::{ReservedWord, Token},
 };
@@ -76,35 +76,45 @@ impl Parser {
         loop {
             let next = self.look_ahead(1);
 
-            let op = match next {
-                Token::EOF | Token::RightParen | Token::Semicolon => {
+            if let Some(op) = BinOp::from_token(&next) {
+                let (l_bp, r_bp) = op.infix_binding_power();
+                if l_bp < min_bp {
                     break;
                 }
-                _ => {
-                    if let Some(op) = BinOp::from_token(&next) {
-                        op
-                    } else {
-                        return Err(InterpreterError::Syntax(format!("invalid token: {}", next)));
-                    }
+
+                self.bump(); // Bump past op
+                self.bump(); // Bump to update current token for parse
+
+                let rhs = self.parse_expr(r_bp)?;
+                lhs = Expr::Arithmetic(op, Box::new(lhs), Box::new(rhs));
+            } else if let Some(op) = LogicalOp::from_token(&next) {
+                let (l_bp, r_bp) = op.infix_binding_power();
+                if l_bp < min_bp {
+                    break;
                 }
-            };
 
-            let (l_bp, r_bp) = op.infix_binding_power();
-            if l_bp < min_bp {
+                self.bump(); // Bump past op
+                self.bump(); // Bump to update current token for parse
+
+                let rhs = self.parse_expr(r_bp)?;
+                lhs = Expr::Conditional(op, Box::new(lhs), Box::new(rhs));
+            } else if matches!(next, Token::EOF | Token::RightParen | Token::Semicolon) {
                 break;
+            } else {
+                return Err(InterpreterError::Syntax(format!("invalid token: {}", next)));
             }
-
-            self.bump(); // Bump past op
-            self.bump(); // Bump to update current token for parse
-
-            let rhs = self.parse_expr(r_bp)?;
-            lhs = Expr::Arithmetic(op, Box::new(lhs), Box::new(rhs));
         }
         Ok(lhs)
     }
 }
-impl BinOp {
-    pub fn infix_binding_power(&self) -> (u8, u8) {
+
+trait InfixBindingPower {
+    fn infix_binding_power(&self) -> (u8, u8);
+    // fn create_expression(&self, left: Expr, right: Expr) -> Expr;
+}
+
+impl InfixBindingPower for BinOp {
+    fn infix_binding_power(&self) -> (u8, u8) {
         use BinOp::*;
         match self {
             Lt | Le | Gt | Ge | Eq | Ne => (1, 2),
@@ -112,6 +122,19 @@ impl BinOp {
             Mul | Div => (5, 6),
         }
     }
+
+    // fn create_expression(&self, left: Expr, right: Expr) -> Expr {
+    //     Expr::Arithmetic(self.clone(), Box::new(left), Box::new(right))
+    // }
+}
+
+impl InfixBindingPower for LogicalOp {
+    fn infix_binding_power(&self) -> (u8, u8) {
+        (1, 2)
+    }
+    // fn create_expression(&self, left: Expr, right: Expr) -> Expr {
+    //     Expr::Conditional(self.clone(), Box::new(left), Box::new(right))
+    // }
 }
 trait ExprKind: Sized {
     fn from_token(token: &Token) -> Option<Self>;
@@ -154,6 +177,16 @@ impl ExprKind for Literal {
             },
             Token::StringLiteral(value) => Some(Self::String(value.to_string())),
             Token::Number(_, value) => Some(Self::Number(*value)),
+            _ => None,
+        }
+    }
+}
+
+impl ExprKind for LogicalOp {
+    fn from_token(token: &Token) -> Option<Self> {
+        match token {
+            Token::Reserved(ReservedWord::Or) => Some(Self::Or),
+            Token::Reserved(ReservedWord::And) => Some(Self::And),
             _ => None,
         }
     }

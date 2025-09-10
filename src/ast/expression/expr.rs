@@ -6,6 +6,7 @@ pub enum Expr {
     Group(Box<Group>),
     Unary(UnaryOp, Box<Expr>),
     Arithmetic(BinOp, Box<Expr>, Box<Expr>),
+    Conditional(LogicalOp, Box<Expr>, Box<Expr>),
     Variable(String),
     InitVar(String, Box<Expr>),
     UpdateVar(String, Box<Expr>),
@@ -22,10 +23,26 @@ impl Display for Expr {
             Self::Group(group) => write!(f, "(group {})", group.0),
             Self::Unary(op, expr) => write!(f, "({op} {expr})"),
             Self::Arithmetic(op, left, right) => write!(f, "({op} {left} {right})"),
+            Self::Conditional(op, left, right) => write!(f, "({op} {left} {right})"),
             Self::Variable(ident) => write!(f, "{ident}"),
             Self::InitVar(ident, expr) => write!(f, "{ident} equals {expr}"),
             Self::UpdateVar(ident, expr) => write!(f, "updating {ident} to {expr}"),
             Self::Print(expr) => write!(f, "printing {expr}"),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum LogicalOp {
+    Or,
+    And,
+}
+
+impl Display for LogicalOp {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            LogicalOp::Or => write!(f, "or"),
+            LogicalOp::And => write!(f, "and"),
         }
     }
 }

@@ -1,7 +1,10 @@
 use std::fmt::Display;
 
 use crate::{
-    ast::expression::{BinOp, Expr, Literal, UnaryOp},
+    ast::{
+        expression::{BinOp, Expr, Literal, UnaryOp},
+        LogicalOp,
+    },
     error::InterpreterError,
     runtime::scope::Scope,
 };
@@ -68,6 +71,19 @@ impl Expr {
                             "Operand must be a number".to_string(),
                         )),
                     },
+                }
+            }
+            Expr::Conditional(op, left, right) => {
+                match (left.evaluate(scope)?, right.evaluate(scope)?) {
+                    (EvaluateValue::Boolean(left_val), EvaluateValue::Boolean(right_val)) => {
+                        match op {
+                            LogicalOp::Or => Ok(EvaluateValue::Boolean(left_val || right_val)),
+                            LogicalOp::And => Ok(EvaluateValue::Boolean(left_val && right_val)),
+                        }
+                    }
+                    (_, _) => Err(InterpreterError::Runtime(
+                        "Expression doesn't evaluate to boolean".to_string(),
+                    )),
                 }
             }
             Expr::Variable(ident) => match scope.find(ident) {
