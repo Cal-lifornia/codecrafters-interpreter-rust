@@ -16,7 +16,7 @@ impl Expr {
                 Literal::False => Ok(EvaluateValue::Boolean(false)),
                 Literal::Nil => Ok(EvaluateValue::Nil),
             },
-            Expr::Group(expr) => expr.evaluate(scope),
+            Expr::Group(group) => group.0.evaluate(scope),
             Expr::Unary(unary_op, expr) => match unary_op {
                 UnaryOp::Bang => match expr.evaluate(scope)? {
                     EvaluateValue::String(_) => Ok(EvaluateValue::Boolean(false)),

@@ -1,10 +1,10 @@
 use crate::{
     ast::{
         parse::Parser,
-        stmt::{Block, Stmt},
+        stmt::{Block, IfKind, Stmt},
     },
     error::InterpreterError,
-    tokens::Token,
+    tokens::{ReservedWord, Token},
 };
 
 impl Parser {
@@ -25,6 +25,7 @@ impl Parser {
     pub fn parse_stmt(&mut self) -> Result<Stmt, InterpreterError> {
         match self.current_token {
             Token::LeftBrace => Ok(Stmt::Block(self.parse_block()?)),
+            Token::Reserved(ReservedWord::If) => self.parse_if(),
             _ => {
                 let stmt = self.parse_expr(0)?;
                 let next = self.look_ahead(1);
@@ -37,5 +38,19 @@ impl Parser {
                 }
             }
         }
+    }
+    pub fn parse_if(&mut self) -> Result<Stmt, InterpreterError> {
+        assert_eq!(self.current_token, Token::Reserved(ReservedWord::If));
+        self.bump();
+
+        let group = self.parse_group()?;
+        self.bump();
+
+        let kind = if matches!(self.current_token, Token::LeftBrace) {
+            IfKind::Block(self.parse_block()?)
+        } else {
+            IfKind::Expr(Box::new(self.parse_expr(0)?))
+        };
+        Ok(Stmt::If(group, kind))
     }
 }

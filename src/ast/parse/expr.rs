@@ -1,67 +1,70 @@
 use crate::{
-    ast::{parse::Parser, BinOp, Expr, Literal, UnaryOp},
+    ast::{parse::Parser, BinOp, Expr, Group, Literal, UnaryOp},
     error::InterpreterError,
     tokens::{ReservedWord, Token},
 };
 
 impl Parser {
+    pub fn parse_group(&mut self) -> Result<Group, InterpreterError> {
+        assert_eq!(self.current_token, Token::LeftParen);
+        self.bump();
+        let group = Group(self.parse_expr(0)?);
+        let next = self.look_ahead(1);
+        if next == Token::RightParen {
+            // Bump past right paren
+            self.bump();
+            Ok(group)
+        } else {
+            Err(InterpreterError::Syntax("missing ')'".to_string()))
+        }
+    }
     pub fn parse_expr(&mut self, min_bp: u8) -> Result<Expr, InterpreterError> {
         let current = self.current_token.clone();
 
-        let mut lhs = match current {
-            Token::LeftParen => {
-                // Bump past left paren
-                self.bump();
-                let group = Expr::Group(Box::new(self.parse_expr(0)?));
-                let next = self.look_ahead(1);
-                if next == Token::RightParen {
-                    // Bump past right paren
-                    self.bump();
-                    group
-                } else {
-                    return Err(InterpreterError::Syntax("missing ')'".to_string()));
-                }
-            }
-
-            Token::Reserved(ReservedWord::Var) => {
-                self.bump();
-                if let Token::Identifier(ident) = self.current_token.clone() {
+        let mut lhs = if let Some(literal) = Literal::from_token(&current) {
+            Expr::Literal(literal)
+        } else if let Some(op) = UnaryOp::from_token(&current) {
+            self.bump();
+            Expr::Unary(op, Box::new(self.parse_expr(7)?))
+        } else {
+            match current {
+                Token::LeftParen => Expr::Group(Box::new(self.parse_group()?)),
+                Token::Reserved(reserved) => match reserved {
+                    ReservedWord::Var => {
+                        self.bump();
+                        if let Token::Identifier(ident) = self.current_token.clone() {
+                            let next = self.look_ahead(1);
+                            if next == Token::Equal {
+                                self.bump();
+                                self.bump();
+                                Expr::InitVar(ident.clone(), Box::new(self.parse_expr(0)?))
+                            } else {
+                                Expr::InitVar(ident.clone(), Box::new(Expr::Literal(Literal::Nil)))
+                            }
+                        } else {
+                            return Err(InterpreterError::Syntax(format!(
+                                "invalid token: {}",
+                                self.current_token.clone()
+                            )));
+                        }
+                    }
+                    ReservedWord::Print => {
+                        self.bump();
+                        Expr::Print(Box::new(self.parse_expr(0)?))
+                    }
+                    _ => todo!(),
+                },
+                Token::Identifier(ident) => {
                     let next = self.look_ahead(1);
                     if next == Token::Equal {
                         self.bump();
                         self.bump();
-                        Expr::InitVar(ident.clone(), Box::new(self.parse_expr(0)?))
+                        Expr::UpdateVar(ident.clone(), Box::new(self.parse_expr(0)?))
                     } else {
-                        Expr::InitVar(ident.clone(), Box::new(Expr::Literal(Literal::Nil)))
+                        Expr::Variable(ident.clone())
                     }
-                } else {
-                    return Err(InterpreterError::Syntax(format!(
-                        "invalid token: {}",
-                        self.current_token.clone()
-                    )));
                 }
-            }
-            Token::Reserved(ReservedWord::Print) => {
-                self.bump();
-                Expr::Print(Box::new(self.parse_expr(0)?))
-            }
-            Token::Identifier(ident) => {
-                let next = self.look_ahead(1);
-                if next == Token::Equal {
-                    self.bump();
-                    self.bump();
-                    Expr::UpdateVar(ident.clone(), Box::new(self.parse_expr(0)?))
-                } else {
-                    Expr::Variable(ident.clone())
-                }
-            }
-            _ => {
-                if let Some(literal) = Literal::from_token(&current) {
-                    Expr::Literal(literal)
-                } else if let Some(op) = UnaryOp::from_token(&current) {
-                    self.bump();
-                    Expr::Unary(op, Box::new(self.parse_expr(7)?))
-                } else {
+                _ => {
                     return Err(InterpreterError::Syntax(format!(
                         "invalid token: {}",
                         current.clone()
