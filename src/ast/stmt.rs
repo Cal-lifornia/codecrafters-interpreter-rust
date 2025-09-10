@@ -1,5 +1,5 @@
 use crate::{
-    ast::{evaluate::EvaluateValue, Expr, Group},
+    ast::{Expr, Group},
     error::InterpreterError,
     runtime::scope::Scope,
 };
@@ -28,7 +28,7 @@ impl Stmt {
                 if_kind,
                 if_else,
             } => {
-                if matches!(cond.0.evaluate(scope)?, EvaluateValue::Boolean(true)) {
+                if cond.0.evaluate(scope)?.is_truthy() {
                     if_kind.run(scope)?;
                 } else if let Some(else_kind) = if_else {
                     else_kind.run(scope)?;

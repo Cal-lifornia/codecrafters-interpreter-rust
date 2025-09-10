@@ -3,7 +3,7 @@ use std::fmt::Display;
 use crate::{
     ast::{
         expression::{BinOp, Expr, Literal, UnaryOp},
-        LogicalOp,
+        LogicOp,
     },
     error::InterpreterError,
     runtime::scope::Scope,
@@ -74,16 +74,24 @@ impl Expr {
                 }
             }
             Expr::Conditional(op, left, right) => {
-                match (left.evaluate(scope)?, right.evaluate(scope)?) {
-                    (EvaluateValue::Boolean(left_val), EvaluateValue::Boolean(right_val)) => {
-                        match op {
-                            LogicalOp::Or => Ok(EvaluateValue::Boolean(left_val || right_val)),
-                            LogicalOp::And => Ok(EvaluateValue::Boolean(left_val && right_val)),
+                let (left_val, right_val) = (left.evaluate(scope)?, right.evaluate(scope)?);
+                match op {
+                    LogicOp::Or => {
+                        if left_val.is_truthy() {
+                            Ok(left_val)
+                        } else if right_val.is_truthy() {
+                            Ok(right_val)
+                        } else {
+                            Ok(EvaluateValue::Truthy(false))
                         }
                     }
-                    (_, _) => Err(InterpreterError::Runtime(
-                        "Expression doesn't evaluate to boolean".to_string(),
-                    )),
+                    LogicOp::And => {
+                        if left_val.is_truthy() && right_val.is_truthy() {
+                            Ok(left_val)
+                        } else {
+                            Ok(EvaluateValue::Truthy(false))
+                        }
+                    }
                 }
             }
             Expr::Variable(ident) => match scope.find(ident) {
@@ -119,9 +127,22 @@ pub enum EvaluateValue {
     String(String),
     Number(f64),
     Boolean(bool),
-    Many(Vec<EvaluateValue>),
+    Truthy(bool),
     Nil,
     Empty,
+}
+
+impl EvaluateValue {
+    pub fn is_truthy(&self) -> bool {
+        match self {
+            EvaluateValue::String(_) => true,
+            EvaluateValue::Number(_) => true,
+            EvaluateValue::Boolean(_) => true,
+            EvaluateValue::Truthy(val) => *val,
+            EvaluateValue::Nil => false,
+            EvaluateValue::Empty => false,
+        }
+    }
 }
 
 impl Display for EvaluateValue {
@@ -130,12 +151,7 @@ impl Display for EvaluateValue {
             Self::String(val) => write!(f, "{val}"),
             Self::Number(val) => write!(f, "{val}"),
             Self::Boolean(val) => write!(f, "{val}"),
-            Self::Many(vals) => {
-                let mut out = String::new();
-                vals.iter()
-                    .for_each(|expr| out.push_str(format!("{expr}").as_str()));
-                write!(f, "{out}")
-            }
+            Self::Truthy(val) => write!(f, "{val}"),
             Self::Nil => write!(f, "nil"),
             Self::Empty => write!(f, ""),
         }

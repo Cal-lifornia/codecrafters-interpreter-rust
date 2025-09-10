@@ -1,5 +1,5 @@
 use crate::{
-    ast::{parse::Parser, BinOp, Expr, Group, Literal, LogicalOp, UnaryOp},
+    ast::{parse::Parser, BinOp, Expr, Group, Literal, LogicOp, UnaryOp},
     error::InterpreterError,
     tokens::{ReservedWord, Token},
 };
@@ -76,7 +76,7 @@ impl Parser {
         loop {
             let next = self.look_ahead(1);
 
-            if let Some(op) = BinOp::from_token(&next) {
+            if let Some(op) = InfixOp::from_token(&next) {
                 let (l_bp, r_bp) = op.infix_binding_power();
                 if l_bp < min_bp {
                     break;
@@ -86,18 +86,12 @@ impl Parser {
                 self.bump(); // Bump to update current token for parse
 
                 let rhs = self.parse_expr(r_bp)?;
-                lhs = Expr::Arithmetic(op, Box::new(lhs), Box::new(rhs));
-            } else if let Some(op) = LogicalOp::from_token(&next) {
-                let (l_bp, r_bp) = op.infix_binding_power();
-                if l_bp < min_bp {
-                    break;
+                lhs = match op {
+                    InfixOp::Bin(bin_op) => Expr::Arithmetic(bin_op, Box::new(lhs), Box::new(rhs)),
+                    InfixOp::Logic(logic_op) => {
+                        Expr::Conditional(logic_op, Box::new(lhs), Box::new(rhs))
+                    }
                 }
-
-                self.bump(); // Bump past op
-                self.bump(); // Bump to update current token for parse
-
-                let rhs = self.parse_expr(r_bp)?;
-                lhs = Expr::Conditional(op, Box::new(lhs), Box::new(rhs));
             } else if matches!(next, Token::EOF | Token::RightParen | Token::Semicolon) {
                 break;
             } else {
@@ -108,9 +102,37 @@ impl Parser {
     }
 }
 
+enum InfixOp {
+    Bin(BinOp),
+    Logic(LogicOp),
+}
+
+impl InfixBindingPower for InfixOp {
+    fn infix_binding_power(&self) -> (u8, u8) {
+        use BinOp::*;
+        match self {
+            InfixOp::Bin(op) => match op {
+                Lt | Le | Gt | Ge | Eq | Ne => (3, 4),
+                Add | Sub => (5, 6),
+                Mul | Div => (7, 8),
+            },
+            InfixOp::Logic(_) => (1, 2),
+        }
+    }
+}
+
+impl ExprKind for InfixOp {
+    fn from_token(token: &Token) -> Option<Self> {
+        if let Some(op) = BinOp::from_token(token) {
+            Some(InfixOp::Bin(op))
+        } else {
+            LogicOp::from_token(token).map(InfixOp::Logic)
+        }
+    }
+}
+
 trait InfixBindingPower {
     fn infix_binding_power(&self) -> (u8, u8);
-    // fn create_expression(&self, left: Expr, right: Expr) -> Expr;
 }
 
 impl InfixBindingPower for BinOp {
@@ -128,7 +150,7 @@ impl InfixBindingPower for BinOp {
     // }
 }
 
-impl InfixBindingPower for LogicalOp {
+impl InfixBindingPower for LogicOp {
     fn infix_binding_power(&self) -> (u8, u8) {
         (1, 2)
     }
@@ -182,7 +204,7 @@ impl ExprKind for Literal {
     }
 }
 
-impl ExprKind for LogicalOp {
+impl ExprKind for LogicOp {
     fn from_token(token: &Token) -> Option<Self> {
         match token {
             Token::Reserved(ReservedWord::Or) => Some(Self::Or),
