@@ -1,5 +1,7 @@
 use std::fmt::Display;
 
+use crate::ast::{ident::Ident, item::FunSig};
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum Expr {
     Literal(Literal),
@@ -7,10 +9,12 @@ pub enum Expr {
     Unary(UnaryOp, Box<Expr>),
     Arithmetic(BinOp, Box<Expr>, Box<Expr>),
     Conditional(LogicOp, Box<Expr>, Box<Expr>),
-    Variable(String),
-    InitVar(String, Box<Expr>),
-    UpdateVar(String, Box<Expr>),
+    Variable(Ident),
+    InitVar(Ident, Box<Expr>),
+    UpdateVar(Ident, Box<Expr>),
     Print(Box<Expr>),
+    MethodCall(FunSig),
+    Return(Box<Expr>),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -28,6 +32,10 @@ impl Display for Expr {
             Self::InitVar(ident, expr) => write!(f, "{ident} equals {expr}"),
             Self::UpdateVar(ident, expr) => write!(f, "updating {ident} to {expr}"),
             Self::Print(expr) => write!(f, "printing {expr}"),
+            Self::MethodCall(sig) => {
+                write!(f, "calling fun {} with args: {:?}", sig.ident, sig.inputs)
+            }
+            Self::Return(expr) => write!(f, "(return {expr})"),
         }
     }
 }

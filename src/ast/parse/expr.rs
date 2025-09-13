@@ -1,5 +1,5 @@
 use crate::{
-    ast::{parse::Parser, BinOp, Expr, Group, Literal, LogicOp, UnaryOp},
+    ast::{ident::Ident, parse::Parser, BinOp, Expr, Group, Literal, LogicOp, UnaryOp},
     error::InterpreterError,
     tokens::{ReservedWord, Token},
 };
@@ -18,6 +18,7 @@ impl Parser {
             Err(InterpreterError::Syntax("missing ')'".to_string()))
         }
     }
+
     pub fn parse_expr(&mut self, min_bp: u8) -> Result<Expr, InterpreterError> {
         let current = self.current_token.clone();
 
@@ -32,7 +33,7 @@ impl Parser {
                 Token::Reserved(reserved) => match reserved {
                     ReservedWord::Var => {
                         self.bump();
-                        if let Token::Identifier(ident) = self.current_token.clone() {
+                        if let Some(ident) = Ident::from_token(&self.current_token) {
                             let next = self.look_ahead(1);
                             if next == Token::Equal {
                                 self.bump();
@@ -52,16 +53,24 @@ impl Parser {
                         self.bump();
                         Expr::Print(Box::new(self.parse_expr(0)?))
                     }
+                    ReservedWord::Return => {
+                        self.bump();
+                        Expr::Return(Box::new(self.parse_expr(0)?))
+                    }
                     _ => todo!(),
                 },
                 Token::Identifier(ident) => {
+                    let ident = Ident(ident.to_string());
                     let next = self.look_ahead(1);
                     if next == Token::Equal {
                         self.bump();
                         self.bump();
                         Expr::UpdateVar(ident.clone(), Box::new(self.parse_expr(0)?))
+                    } else if next == Token::LeftParen {
+                        self.bump();
+                        Expr::MethodCall(self.parse_fun_sig(ident)?)
                     } else {
-                        Expr::Variable(ident.clone())
+                        Expr::Variable(ident)
                     }
                 }
                 _ => {

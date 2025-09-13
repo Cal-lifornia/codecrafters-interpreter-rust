@@ -1,6 +1,7 @@
 pub mod expr;
 
-pub mod stmt;
+mod item;
+mod stmt;
 pub mod token_stream;
 
 use crate::{

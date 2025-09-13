@@ -6,11 +6,11 @@ use crate::{
         LogicOp,
     },
     error::InterpreterError,
-    runtime::scope::Scope,
+    runtime::program::Runtime,
 };
 
 impl Expr {
-    pub fn evaluate(&self, scope: &mut Scope) -> EvaluateResult {
+    pub fn evaluate(&self, runtime: &mut Runtime) -> EvaluateResult {
         match self {
             Expr::Literal(literal) => match literal {
                 Literal::Number(num) => Ok(EvaluateValue::Number(*num)),
@@ -19,9 +19,9 @@ impl Expr {
                 Literal::False => Ok(EvaluateValue::Boolean(false)),
                 Literal::Nil => Ok(EvaluateValue::Nil),
             },
-            Expr::Group(group) => group.0.evaluate(scope),
+            Expr::Group(group) => group.0.evaluate(runtime),
             Expr::Unary(unary_op, expr) => match unary_op {
-                UnaryOp::Bang => match expr.evaluate(scope)? {
+                UnaryOp::Bang => match expr.evaluate(runtime)? {
                     EvaluateValue::String(_) => Ok(EvaluateValue::Boolean(false)),
                     EvaluateValue::Number(_) => Ok(EvaluateValue::Boolean(false)),
                     EvaluateValue::Boolean(val) => Ok(EvaluateValue::Boolean(!val)),
@@ -30,7 +30,7 @@ impl Expr {
                         "Incorrect expression type".to_string(),
                     )),
                 },
-                UnaryOp::Minus => match expr.evaluate(scope)? {
+                UnaryOp::Minus => match expr.evaluate(runtime)? {
                     EvaluateValue::Number(num) => Ok(EvaluateValue::Number(-num)),
                     _ => Err(InterpreterError::Runtime(
                         "Operand must be a number".to_string(),
@@ -38,7 +38,7 @@ impl Expr {
                 },
             },
             Expr::Arithmetic(op, left, right) => {
-                match (left.evaluate(scope)?, right.evaluate(scope)?) {
+                match (left.evaluate(runtime)?, right.evaluate(runtime)?) {
                     (EvaluateValue::Number(num_left), EvaluateValue::Number(num_right)) => match op
                     {
                         BinOp::Add => Ok(EvaluateValue::Number(num_left + num_right)),
@@ -75,11 +75,11 @@ impl Expr {
             }
             Expr::Conditional(op, left, right) => match op {
                 LogicOp::Or => {
-                    let left_val = left.evaluate(scope)?;
+                    let left_val = left.evaluate(runtime)?;
                     if left_val.is_truthy() {
                         return Ok(left_val);
                     }
-                    let right_val = right.evaluate(scope)?;
+                    let right_val = right.evaluate(runtime)?;
                     if right_val.is_truthy() {
                         return Ok(right_val);
                     }
@@ -87,39 +87,52 @@ impl Expr {
                 }
 
                 LogicOp::And => {
-                    let left_val = left.evaluate(scope)?;
+                    let left_val = left.evaluate(runtime)?;
                     if !left_val.is_truthy() {
                         return Ok(EvaluateValue::Boolean(false));
                     }
-                    let right_val = right.evaluate(scope)?;
+                    let right_val = right.evaluate(runtime)?;
                     if right_val.is_truthy() {
                         return Ok(right_val);
                     }
                     Ok(EvaluateValue::Boolean(false))
                 }
             },
-            Expr::Variable(ident) => match scope.find(ident) {
+            Expr::Variable(ident) => match runtime.scope.find_var(ident) {
                 Some(val) => Ok(val.clone()),
                 None => Err(InterpreterError::Runtime(format!(
                     "Undefined variable '{ident}'"
                 ))),
             },
             Expr::InitVar(ident, expr) => {
-                let value = expr.evaluate(scope)?;
-                scope.insert(ident.to_string(), value.clone());
+                let value = expr.evaluate(runtime)?;
+                runtime.scope.insert_var(ident.clone(), value.clone());
                 Ok(value)
             }
             Expr::UpdateVar(ident, expr) => {
-                let value = expr.evaluate(scope)?;
+                let value = expr.evaluate(runtime)?;
                 // println!("updating {ident} to {value}");
-                scope.update(ident, value.clone())?;
+                runtime.scope.update_var(ident, value.clone())?;
                 Ok(value)
             }
             Expr::Print(expr) => {
-                let value = expr.evaluate(scope)?;
+                let value = expr.evaluate(runtime)?;
                 println!("{value}");
                 Ok(EvaluateValue::Empty)
             }
+            Expr::MethodCall(fun_sig) => {
+                if let Some(fun) = runtime.get_function(fun_sig) {
+                    fun.run(runtime, fun_sig.inputs.clone())
+                } else if let Some(fun) = runtime.get_native_fun(fun_sig) {
+                    fun.run()
+                } else {
+                    Err(InterpreterError::Runtime(format!(
+                        "cannot find method with name {}",
+                        fun_sig.ident
+                    )))
+                }
+            }
+            Expr::Return(expr) => expr.evaluate(runtime),
         }
     }
 }
