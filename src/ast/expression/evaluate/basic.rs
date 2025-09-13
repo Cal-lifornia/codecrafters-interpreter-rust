@@ -106,12 +106,12 @@ impl Expr {
             },
             Expr::InitVar(ident, expr) => {
                 let value = expr.evaluate(scope)?;
-                // println!("setting {ident} to {value}");
                 scope.insert(ident.to_string(), value.clone());
                 Ok(value)
             }
             Expr::UpdateVar(ident, expr) => {
                 let value = expr.evaluate(scope)?;
+                // println!("updating {ident} to {value}");
                 scope.update(ident, value.clone())?;
                 Ok(value)
             }

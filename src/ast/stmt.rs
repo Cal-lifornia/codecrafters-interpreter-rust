@@ -9,6 +9,7 @@ pub enum Stmt {
     Block(Block),
     If(Group, ControlFlowStmt, Option<ControlFlowStmt>),
     WhileLoop(Group, ControlFlowStmt),
+    ForLoop(Box<ForLoopArgs>, ControlFlowStmt),
 }
 
 impl Stmt {
@@ -31,6 +32,21 @@ impl Stmt {
                 while cond.0.evaluate(scope)?.is_truthy() {
                     kind.run(scope)?;
                 }
+            }
+            Stmt::ForLoop(args, kind) => {
+                scope.add_local();
+                if let Some(init) = &args.init {
+                    init.run(scope)?;
+                }
+                if let Stmt::Expr(cond) = &args.cond {
+                    while cond.evaluate(scope)?.is_truthy() {
+                        kind.run(scope)?;
+                        if let Some(stmt) = &args.stmt {
+                            stmt.run(scope)?;
+                        }
+                    }
+                }
+                scope.drop_local();
             }
         }
         Ok(())
@@ -71,4 +87,11 @@ impl ControlFlowStmt {
         }
         Ok(())
     }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct ForLoopArgs {
+    pub init: Option<Stmt>,
+    pub cond: Stmt,
+    pub stmt: Option<Stmt>,
 }

@@ -87,11 +87,10 @@ fn create_token_tree(lexer: &mut Lexer) -> Result<TokenTree, InterpreterError> {
     match first {
         Token::LeftParen => {
             let mut stream = vec![];
-            stream.push(TokenTree::Token(first));
             loop {
                 let next = lexer.peek_next();
                 if next == Token::RightParen {
-                    stream.push(TokenTree::Token(lexer.next_token()));
+                    lexer.next_token();
                     break;
                 } else if next == Token::EOF {
                     return Err(InterpreterError::Syntax("missing ')'".to_string()));
@@ -106,11 +105,10 @@ fn create_token_tree(lexer: &mut Lexer) -> Result<TokenTree, InterpreterError> {
         }
         Token::LeftBrace => {
             let mut stream = vec![];
-            stream.push(TokenTree::Token(first));
             loop {
                 let next = lexer.peek_next();
                 if next == Token::RightBrace {
-                    stream.push(TokenTree::Token(lexer.next_token()));
+                    lexer.next_token();
                     break;
                 } else if next == Token::EOF {
                     return Err(InterpreterError::Syntax("missing '}'".to_string()));
