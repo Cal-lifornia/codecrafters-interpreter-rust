@@ -10,7 +10,6 @@ use crate::{
 
 impl Parser {
     pub fn parse_block(&mut self) -> Result<Block, InterpreterError> {
-        assert_eq!(self.current_token, Token::LeftBrace);
         self.bump();
 
         let mut stmts: Vec<Stmt> = vec![];

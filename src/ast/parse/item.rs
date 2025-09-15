@@ -32,8 +32,11 @@ impl Parser {
                 break;
             }
         }
-        assert_eq!(self.current_token, Token::RightParen);
-        Ok(FunSig { ident, inputs })
+        if self.current_token != Token::RightParen {
+            Err(InterpreterError::Syntax("missing ')'".to_string()))
+        } else {
+            Ok(FunSig { ident, inputs })
+        }
     }
 
     pub fn parse_function(&mut self) -> Result<Function, InterpreterError> {
