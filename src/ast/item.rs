@@ -9,9 +9,19 @@ pub enum Item {
     Fun(Function),
 }
 
-// impl Item {
-//     pub fn run(&self, scope: &mut Scope) -> Result<(), InterpreterError> {}
-// }
+impl Item {
+    pub fn run(&self, runtime: &mut Runtime) -> Result<(), InterpreterError> {
+        match self {
+            Item::Fun(function) => {
+                runtime.insert_unique_function(function.sig.clone(), function.clone());
+                runtime
+                    .scope
+                    .insert_function_var(function.sig.ident.clone());
+                Ok(())
+            }
+        }
+    }
+}
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Function {

@@ -1,5 +1,6 @@
 use crate::{
     ast::{
+        item::Item,
         parse::Parser,
         stmt::{Block, ControlFlowStmt, ForLoopArgs, Stmt},
     },
@@ -41,6 +42,11 @@ impl Parser {
                 let kind = self.parse_control_flow_stmt()?;
 
                 Ok(Stmt::ForLoop(Box::new(args), kind))
+            }
+            Token::Reserved(ReservedWord::Fun) => {
+                self.bump();
+                let function = self.parse_function()?;
+                Ok(Stmt::Item(Item::Fun(function)))
             }
             _ => {
                 let stmt = self.parse_expr(0)?;

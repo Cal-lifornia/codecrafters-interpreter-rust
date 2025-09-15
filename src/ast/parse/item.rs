@@ -1,5 +1,9 @@
 use crate::{
-    ast::{ident::Ident, item::FunSig, parse::Parser},
+    ast::{
+        ident::Ident,
+        item::{FunSig, Function},
+        parse::Parser,
+    },
     error::InterpreterError,
     tokens::Token,
 };
@@ -30,5 +34,21 @@ impl Parser {
         }
         assert_eq!(self.current_token, Token::RightParen);
         Ok(FunSig { ident, inputs })
+    }
+
+    pub fn parse_function(&mut self) -> Result<Function, InterpreterError> {
+        let Some(ident) = Ident::from_token(&self.current_token) else {
+            return Err(InterpreterError::Syntax(format!(
+                "Expected identifier, got {}",
+                self.current_token
+            )));
+        };
+        self.bump();
+        let sig = self.parse_fun_sig(ident)?;
+        self.bump();
+
+        let body = self.parse_block()?;
+
+        Ok(Function { sig, body })
     }
 }

@@ -1,11 +1,11 @@
 use crate::{
-    ast::{evaluate::EvaluateValue, Expr, Group},
+    ast::{evaluate::EvaluateValue, item::Item, Expr, Group},
     error::InterpreterError,
     runtime::program::Runtime,
 };
 #[derive(Debug, Clone, PartialEq)]
 pub enum Stmt {
-    // Item(Item),
+    Item(Item),
     Expr(Expr),
     Block(Block),
     If(Group, ControlFlowStmt, Option<ControlFlowStmt>),
@@ -16,6 +16,9 @@ pub enum Stmt {
 impl Stmt {
     pub fn run(&self, runtime: &mut Runtime) -> Result<(), InterpreterError> {
         match self {
+            Stmt::Item(item) => {
+                item.run(runtime)?;
+            }
             Stmt::Expr(expr) => {
                 expr.evaluate(runtime)?;
             }

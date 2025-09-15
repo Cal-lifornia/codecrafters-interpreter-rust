@@ -90,4 +90,14 @@ impl Scope {
             "variable {ident} not found"
         )))
     }
+
+    pub fn insert_function_var(&mut self, ident: Ident) {
+        let value = EvaluateValue::String(format!("<fn {ident}>"));
+        if self.stack.is_empty() {
+            self.local.insert_unique(ident, value);
+        } else {
+            let first = self.stack.get_mut(0).unwrap();
+            first.insert_unique(ident, value);
+        }
+    }
 }
