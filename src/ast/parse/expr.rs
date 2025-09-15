@@ -68,7 +68,24 @@ impl Parser {
                         Expr::UpdateVar(ident.clone(), Box::new(self.parse_expr(0)?))
                     } else if next == Token::LeftParen {
                         self.bump();
-                        Expr::MethodCall(self.parse_fun_sig(ident)?)
+                        self.bump();
+
+                        let mut inputs = vec![];
+                        loop {
+                            if self.current_token == Token::RightParen {
+                                break;
+                            }
+                            inputs.push(self.parse_expr(0)?);
+                            self.bump();
+                            if self.current_token == Token::Comma {
+                                self.bump();
+                                continue;
+                            } else {
+                                break;
+                            }
+                        }
+                        assert_eq!(self.current_token, Token::RightParen);
+                        Expr::MethodCall(ident, inputs)
                     } else {
                         Expr::Variable(ident)
                     }
@@ -101,7 +118,10 @@ impl Parser {
 
                 let rhs = self.parse_expr(r_bp)?;
                 lhs = Expr::Arithmetic(op, Box::new(lhs), Box::new(rhs));
-            } else if matches!(next, Token::EOF | Token::RightParen | Token::Semicolon) {
+            } else if matches!(
+                next,
+                Token::EOF | Token::RightParen | Token::Semicolon | Token::Comma
+            ) {
                 break;
             } else {
                 return Err(InterpreterError::Syntax(format!("invalid token: {}", next)));

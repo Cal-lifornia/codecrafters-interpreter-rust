@@ -1,17 +1,13 @@
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use crate::{
-    ast::evaluate::{EvaluateResult, EvaluateValue},
-    error::InterpreterError,
-    native::NativeFunction,
-};
+use crate::{error::InterpreterError, native::NativeFunction, runtime::loxtype::LoxType};
 
 pub struct Clock;
 
 impl NativeFunction for Clock {
-    fn run(&self) -> EvaluateResult {
+    fn run(&self) -> Result<LoxType, InterpreterError> {
         match SystemTime::now().duration_since(UNIX_EPOCH) {
-            Ok(time) => Ok(EvaluateValue::Number(time.as_secs() as f64)),
+            Ok(time) => Ok(LoxType::Number(time.as_secs() as f64)),
             Err(err) => Err(InterpreterError::Runtime(format!("Error: {err}"))),
         }
     }

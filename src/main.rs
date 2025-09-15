@@ -66,7 +66,9 @@ fn run_interpreter(command: &str, filename: &str) -> Result<(), InterpreterError
             let mut parser = Parser::new(TokenStream::direct_from_lexer(&mut lexer));
             let expr = parser.parse_expr(0)?;
             let mut runtime = Runtime::default();
-            println!("{}", expr.evaluate(&mut runtime)?);
+            if let Some(eval) = expr.evaluate(&mut runtime)? {
+                println!("{eval}");
+            }
             Ok(())
         }
         "run" => {

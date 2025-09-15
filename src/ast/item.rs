@@ -1,7 +1,7 @@
 use crate::{
-    ast::{evaluate::EvaluateValue, ident::Ident, stmt::Block},
+    ast::{ident::Ident, stmt::Block},
     error::InterpreterError,
-    runtime::program::Runtime,
+    runtime::{loxtype::LoxType, program::Runtime},
 };
 
 #[derive(Debug, Clone, PartialEq)]
@@ -33,11 +33,18 @@ impl Function {
     pub fn run(
         &self,
         runtime: &mut Runtime,
-        args: Vec<Ident>,
-    ) -> Result<EvaluateValue, InterpreterError> {
-        let mut method = self.clone();
-        method.sig.inputs = args;
-        method.body.run(runtime)
+        args: Vec<LoxType>,
+    ) -> Result<Option<LoxType>, InterpreterError> {
+        let method = self.clone();
+        runtime.scope.add_local();
+        args.iter()
+            .zip(self.sig.inputs.iter())
+            .for_each(|(arg, input)| {
+                runtime.scope.insert_var(input.clone(), arg.clone());
+            });
+        let res = method.body.run(runtime);
+        runtime.scope.drop_local();
+        res
     }
 }
 
@@ -45,6 +52,16 @@ impl Function {
 pub struct FunSig {
     pub ident: Ident,
     pub inputs: Vec<Ident>,
+}
+
+impl FunSig {
+    pub fn method_call(ident: Ident, len: usize) -> Self {
+        let mut inputs = vec![];
+        for _ in 0..len {
+            inputs.push(Ident("".to_string()));
+        }
+        Self { ident, inputs }
+    }
 }
 
 impl std::hash::Hash for FunSig {

@@ -1,14 +1,11 @@
 use hashbrown::HashMap;
 
-use crate::{
-    ast::{evaluate::EvaluateValue, ident::Ident},
-    error::InterpreterError,
-};
+use crate::{ast::ident::Ident, error::InterpreterError, runtime::loxtype::LoxType};
 
 #[derive(Debug, Default, Clone)]
 struct ScopeCursor {
     id: usize,
-    vars: HashMap<Ident, EvaluateValue>,
+    vars: HashMap<Ident, LoxType>,
 }
 
 impl ScopeCursor {
@@ -22,15 +19,15 @@ impl ScopeCursor {
         self.id
     }
 
-    pub fn get(&self, ident: &Ident) -> Option<&EvaluateValue> {
+    pub fn get(&self, ident: &Ident) -> Option<&LoxType> {
         self.vars.get(ident)
     }
 
-    pub fn get_mut(&mut self, ident: &Ident) -> Option<&mut EvaluateValue> {
+    pub fn get_mut(&mut self, ident: &Ident) -> Option<&mut LoxType> {
         self.vars.get_mut(ident)
     }
 
-    pub fn insert_unique(&mut self, ident: Ident, val: EvaluateValue) {
+    pub fn insert_var_with_val(&mut self, ident: Ident, val: LoxType) {
         self.vars.insert(ident, val);
     }
 }
@@ -54,7 +51,7 @@ impl Scope {
         }
     }
 
-    pub fn find_var(&self, ident: &Ident) -> Option<&EvaluateValue> {
+    pub fn find_var(&self, ident: &Ident) -> Option<&LoxType> {
         let mut result = self.local.get(ident);
         for scope in self.stack.iter().rev() {
             if result.is_some() {
@@ -66,15 +63,11 @@ impl Scope {
         result
     }
 
-    pub fn insert_var(&mut self, ident: Ident, val: EvaluateValue) {
-        self.local.insert_unique(ident, val);
+    pub fn insert_var(&mut self, ident: Ident, val: LoxType) {
+        self.local.insert_var_with_val(ident, val);
     }
 
-    pub fn update_var(
-        &mut self,
-        ident: &Ident,
-        val: EvaluateValue,
-    ) -> Result<(), InterpreterError> {
+    pub fn update_var(&mut self, ident: &Ident, val: LoxType) -> Result<(), InterpreterError> {
         if let Some(res) = self.local.get_mut(ident) {
             *res = val;
             return Ok(());
@@ -92,12 +85,12 @@ impl Scope {
     }
 
     pub fn insert_function_var(&mut self, ident: Ident) {
-        let value = EvaluateValue::String(format!("<fn {ident}>"));
+        let value = LoxType::String(format!("<fn {ident}>"));
         if self.stack.is_empty() {
-            self.local.insert_unique(ident, value);
+            self.local.insert_var_with_val(ident, value);
         } else {
             let first = self.stack.get_mut(0).unwrap();
-            first.insert_unique(ident, value);
+            first.insert_var_with_val(ident, value);
         }
     }
 }

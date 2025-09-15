@@ -1,7 +1,7 @@
 use crate::{
-    ast::{evaluate::EvaluateValue, item::Item, Expr, Group},
+    ast::{item::Item, Expr, Group},
     error::InterpreterError,
-    runtime::program::Runtime,
+    runtime::{loxtype::LoxType, program::Runtime},
 };
 #[derive(Debug, Clone, PartialEq)]
 pub enum Stmt {
@@ -26,14 +26,25 @@ impl Stmt {
                 block.run(runtime)?;
             }
             Stmt::If(cond, if_kind, if_else) => {
-                if cond.0.evaluate(runtime)?.is_truthy() {
-                    if_kind.run(runtime)?;
-                } else if let Some(else_kind) = if_else {
-                    else_kind.run(runtime)?;
+                if let Some(cond_eval) = cond.0.evaluate(runtime)? {
+                    if cond_eval.is_truthy() {
+                        if_kind.run(runtime)?;
+                    } else if let Some(else_kind) = if_else {
+                        else_kind.run(runtime)?;
+                    }
+                } else {
+                    return Err(InterpreterError::Runtime(
+                        "can't evaluate empty statement".to_string(),
+                    ));
                 }
             }
             Stmt::WhileLoop(cond, kind) => {
-                while cond.0.evaluate(runtime)?.is_truthy() {
+                while cond
+                    .0
+                    .evaluate(runtime)?
+                    .unwrap_or(LoxType::Nil)
+                    .is_truthy()
+                {
                     kind.run(runtime)?;
                 }
             }
@@ -43,7 +54,7 @@ impl Stmt {
                     init.run(runtime)?;
                 }
                 if let Stmt::Expr(cond) = &args.cond {
-                    while cond.evaluate(runtime)?.is_truthy() {
+                    while cond.evaluate(runtime)?.unwrap_or(LoxType::Nil).is_truthy() {
                         kind.run(runtime)?;
                         if let Some(stmt) = &args.stmt {
                             stmt.run(runtime)?;
@@ -63,7 +74,7 @@ pub struct Block {
 }
 
 impl Block {
-    pub fn run(&self, runtime: &mut Runtime) -> Result<EvaluateValue, InterpreterError> {
+    pub fn run(&self, runtime: &mut Runtime) -> Result<Option<LoxType>, InterpreterError> {
         runtime.scope.add_local();
         let mut stmts = self.stmts.clone();
         let last = stmts.pop_if(|stmt| matches!(stmt, Stmt::Expr(Expr::Return(_))));
@@ -74,7 +85,7 @@ impl Block {
         let res = if let Some(Stmt::Expr(expr)) = last {
             expr.evaluate(runtime)?
         } else {
-            EvaluateValue::Empty
+            None
         };
         runtime.scope.drop_local();
         Ok(res)
