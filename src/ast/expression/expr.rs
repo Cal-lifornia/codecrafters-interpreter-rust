@@ -14,7 +14,7 @@ pub enum Expr {
     UpdateVar(Ident, Box<Expr>),
     Print(Box<Expr>),
     MethodCall(Ident, Vec<Expr>),
-    Return(Box<Expr>),
+    Return(Option<Box<Expr>>),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -35,7 +35,10 @@ impl Display for Expr {
             Self::MethodCall(ident, args) => {
                 write!(f, "calling fun {ident} with args: {args:?}")
             }
-            Self::Return(expr) => write!(f, "(return {expr})"),
+            Self::Return(opt) => match opt {
+                Some(expr) => write!(f, "(return {expr})"),
+                None => write!(f, "blank return"),
+            },
         }
     }
 }

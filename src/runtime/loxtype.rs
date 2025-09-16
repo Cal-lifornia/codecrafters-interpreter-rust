@@ -1,17 +1,18 @@
 use std::{
     fmt::Display,
-    ops::{Add, Not},
+    ops::{Add, Div, Mul, Neg, Not, Sub},
 };
 
 use crate::error::InterpreterError;
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 pub enum LoxType {
     String(String),
     Number(f64),
     Boolean(bool),
-    Variable(Box<LoxType>),
     Nil,
+    Variable(Box<LoxType>),
+    Return(Box<LoxType>),
 }
 
 impl LoxType {
@@ -21,7 +22,16 @@ impl LoxType {
             Self::Number(_) => true,
             Self::Boolean(val) => *val,
             Self::Nil => false,
-            Self::Variable(var) => var.is_truthy(),
+            Self::Variable(val) => val.is_truthy(),
+            Self::Return(val) => val.is_truthy(),
+        }
+    }
+
+    pub fn into_inner(&self) -> &Self {
+        if let Self::Return(val) = self {
+            val
+        } else {
+            self
         }
     }
 }
@@ -32,8 +42,9 @@ impl Display for LoxType {
             Self::String(val) => write!(f, "{val}"),
             Self::Number(val) => write!(f, "{val}"),
             Self::Boolean(val) => write!(f, "{val}"),
-            Self::Variable(val) => write!(f, "{val}"),
             Self::Nil => write!(f, "nil"),
+            Self::Variable(val) => write!(f, "{val}"),
+            Self::Return(val) => write!(f, "{val}"),
         }
     }
 }
@@ -46,8 +57,9 @@ impl Not for LoxType {
             LoxType::String(_) => LoxType::Boolean(false),
             LoxType::Number(_) => LoxType::Boolean(false),
             LoxType::Boolean(val) => LoxType::Boolean(!val),
-            LoxType::Variable(lox_type) => !(*lox_type),
             LoxType::Nil => LoxType::Boolean(true),
+            LoxType::Variable(lox_type) => !(*lox_type),
+            LoxType::Return(lox_type) => !(*lox_type),
         }
     }
 }
@@ -55,17 +67,89 @@ impl Not for LoxType {
 impl Add for LoxType {
     type Output = Result<LoxType, InterpreterError>;
     fn add(self, rhs: Self) -> Self::Output {
-        match (self, rhs) {
-            (LoxType::Number(num_left), LoxType::Number(num_right)) => {
-                Ok(LoxType::Number(num_left + num_right))
-            }
-            (LoxType::String(string_left), LoxType::String(string_right)) => {
-                Ok(LoxType::String(format!("{string_left}{string_right}")))
+        match (self.into_inner(), rhs.into_inner()) {
+            (LoxType::Number(left), LoxType::Number(right)) => Ok(LoxType::Number(left + right)),
+            (LoxType::String(left), LoxType::String(right)) => {
+                Ok(LoxType::String(format!("{left}{right}")))
             }
 
             _ => Err(InterpreterError::Runtime(
                 "operand must be a number".to_string(),
             )),
+        }
+    }
+}
+
+impl Sub for LoxType {
+    type Output = Result<LoxType, InterpreterError>;
+
+    fn sub(self, rhs: Self) -> Self::Output {
+        if let (LoxType::Number(left), LoxType::Number(right)) =
+            (self.into_inner(), rhs.into_inner())
+        {
+            Ok(LoxType::Number(left - right))
+        } else {
+            Err(InterpreterError::Runtime(
+                "operand must be a number".to_string(),
+            ))
+        }
+    }
+}
+
+impl Mul for LoxType {
+    type Output = Result<LoxType, InterpreterError>;
+
+    fn mul(self, rhs: Self) -> Self::Output {
+        if let (LoxType::Number(left), LoxType::Number(right)) =
+            (self.into_inner(), rhs.into_inner())
+        {
+            Ok(LoxType::Number(left * right))
+        } else {
+            Err(InterpreterError::Runtime(
+                "operand must be a number".to_string(),
+            ))
+        }
+    }
+}
+
+impl Div for LoxType {
+    type Output = Result<LoxType, InterpreterError>;
+
+    fn div(self, rhs: Self) -> Self::Output {
+        if let (LoxType::Number(left), LoxType::Number(right)) =
+            (self.into_inner(), rhs.into_inner())
+        {
+            Ok(LoxType::Number(left / right))
+        } else {
+            Err(InterpreterError::Runtime(
+                "operand must be a number".to_string(),
+            ))
+        }
+    }
+}
+
+impl PartialEq for LoxType {
+    fn eq(&self, other: &Self) -> bool {
+        match (self.into_inner(), other.into_inner()) {
+            (Self::String(left), Self::String(right)) => left == right,
+            (Self::Number(left), Self::Number(right)) => left == right,
+            (Self::Boolean(left), Self::Boolean(right)) => left == right,
+            (Self::Nil, Self::Nil) => true,
+            _ => false,
+        }
+    }
+}
+
+impl Neg for LoxType {
+    type Output = Result<LoxType, InterpreterError>;
+
+    fn neg(self) -> Self::Output {
+        if let Self::Number(num) = self.into_inner() {
+            Ok(LoxType::Number(-num))
+        } else {
+            Err(InterpreterError::Runtime(
+                "Operand must be a number".to_string(),
+            ))
         }
     }
 }

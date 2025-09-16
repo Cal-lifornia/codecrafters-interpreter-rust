@@ -14,57 +14,65 @@ pub enum Stmt {
 }
 
 impl Stmt {
-    pub fn run(&self, runtime: &mut Runtime) -> Result<(), InterpreterError> {
+    pub fn run(&self, runtime: &mut Runtime) -> Result<Option<LoxType>, InterpreterError> {
         match self {
             Stmt::Item(item) => {
                 item.run(runtime)?;
+                Ok(None)
             }
-            Stmt::Expr(expr) => {
-                expr.evaluate(runtime)?;
-            }
-            Stmt::Block(block) => {
-                block.run(runtime)?;
-            }
+            Stmt::Expr(expr) => expr.evaluate(runtime),
+            Stmt::Block(block) => block.run(runtime),
             Stmt::If(cond, if_kind, if_else) => {
                 if let Some(cond_eval) = cond.0.evaluate(runtime)? {
                     if cond_eval.is_truthy() {
-                        if_kind.run(runtime)?;
+                        if_kind.run(runtime)
                     } else if let Some(else_kind) = if_else {
-                        else_kind.run(runtime)?;
+                        else_kind.run(runtime)
+                    } else {
+                        Ok(None)
                     }
                 } else {
-                    return Err(InterpreterError::Runtime(
+                    Err(InterpreterError::Runtime(
                         "can't evaluate empty statement".to_string(),
-                    ));
+                    ))
                 }
             }
             Stmt::WhileLoop(cond, kind) => {
+                let mut res: Option<LoxType> = None;
                 while cond
                     .0
                     .evaluate(runtime)?
                     .unwrap_or(LoxType::Nil)
                     .is_truthy()
                 {
-                    kind.run(runtime)?;
+                    res = kind.run(runtime)?;
+                    if matches!(res, Some(LoxType::Return(_))) {
+                        break;
+                    }
                 }
+                Ok(res)
             }
             Stmt::ForLoop(args, kind) => {
                 runtime.scope.add_local();
+                let mut res: Option<LoxType> = None;
                 if let Some(init) = &args.init {
                     init.run(runtime)?;
                 }
                 if let Stmt::Expr(cond) = &args.cond {
                     while cond.evaluate(runtime)?.unwrap_or(LoxType::Nil).is_truthy() {
-                        kind.run(runtime)?;
+                        res = kind.run(runtime)?;
+                        if matches!(res, Some(LoxType::Return(_))) {
+                            break;
+                        }
                         if let Some(stmt) = &args.stmt {
                             stmt.run(runtime)?;
                         }
                     }
                 }
                 runtime.scope.drop_local();
+                Ok(res)
             }
         }
-        Ok(())
     }
 }
 
@@ -76,19 +84,15 @@ pub struct Block {
 impl Block {
     pub fn run(&self, runtime: &mut Runtime) -> Result<Option<LoxType>, InterpreterError> {
         runtime.scope.add_local();
-        let mut stmts = self.stmts.clone();
-        let last = stmts.pop_if(|stmt| matches!(stmt, Stmt::Expr(Expr::Return(_))));
-
-        for stmt in stmts {
-            stmt.run(runtime)?;
+        for stmt in self.stmts.clone() {
+            let result = stmt.run(runtime)?;
+            if matches!(result, Some(LoxType::Return(_))) {
+                runtime.scope.drop_local();
+                return Ok(result);
+            }
         }
-        let res = if let Some(Stmt::Expr(expr)) = last {
-            expr.evaluate(runtime)?
-        } else {
-            None
-        };
         runtime.scope.drop_local();
-        Ok(res)
+        Ok(Some(LoxType::Nil))
     }
 }
 
@@ -99,16 +103,11 @@ pub enum ControlFlowStmt {
 }
 
 impl ControlFlowStmt {
-    pub fn run(&self, runtime: &mut Runtime) -> Result<(), InterpreterError> {
+    pub fn run(&self, runtime: &mut Runtime) -> Result<Option<LoxType>, InterpreterError> {
         match self {
-            ControlFlowStmt::Stmt(stmt) => {
-                stmt.run(runtime)?;
-            }
-            ControlFlowStmt::Block(block) => {
-                block.run(runtime)?;
-            }
+            ControlFlowStmt::Stmt(stmt) => stmt.run(runtime),
+            ControlFlowStmt::Block(block) => block.run(runtime),
         }
-        Ok(())
     }
 }
 

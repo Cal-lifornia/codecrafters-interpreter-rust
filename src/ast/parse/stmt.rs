@@ -69,6 +69,7 @@ impl Parser {
             Ok(ControlFlowStmt::Stmt(Box::new(self.parse_stmt()?)))
         }
     }
+
     pub fn parse_if(&mut self) -> Result<Stmt, InterpreterError> {
         assert_eq!(self.current_token, Token::Reserved(ReservedWord::If));
         self.bump();

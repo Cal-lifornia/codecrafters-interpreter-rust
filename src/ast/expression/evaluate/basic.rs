@@ -27,7 +27,7 @@ impl Expr {
                     )),
                 },
                 UnaryOp::Minus => match expr.evaluate(runtime)? {
-                    Some(LoxType::Number(num)) => Ok(Some(LoxType::Number(-num))),
+                    Some(lox) => (-lox).map(Some),
                     _ => Err(InterpreterError::Runtime(
                         "Operand must be a number".to_string(),
                     )),
@@ -37,36 +37,30 @@ impl Expr {
                 if let (Some(left_val), Some(right_val)) =
                     (left.evaluate(runtime)?, right.evaluate(runtime)?)
                 {
-                    match (left_val, right_val) {
-                        (LoxType::Number(num_left), LoxType::Number(num_right)) => match op {
-                            BinOp::Add => Ok(Some(LoxType::Number(num_left + num_right))),
-                            BinOp::Sub => Ok(Some(LoxType::Number(num_left - num_right))),
-                            BinOp::Mul => Ok(Some(LoxType::Number(num_left * num_right))),
-                            BinOp::Div => Ok(Some(LoxType::Number(num_left / num_right))),
-                            BinOp::Lt => Ok(Some(LoxType::Boolean(num_left < num_right))),
-                            BinOp::Le => Ok(Some(LoxType::Boolean(num_left <= num_right))),
-                            BinOp::Gt => Ok(Some(LoxType::Boolean(num_left > num_right))),
-                            BinOp::Ge => Ok(Some(LoxType::Boolean(num_left >= num_right))),
-                            BinOp::Eq => Ok(Some(LoxType::Boolean(num_left == num_right))),
-                            BinOp::Ne => Ok(Some(LoxType::Boolean(num_left != num_right))),
-                        },
-                        (LoxType::String(string_left), LoxType::String(string_right)) => match op {
-                            BinOp::Add => Ok(Some(LoxType::String(format!(
-                                "{string_left}{string_right}"
-                            )))),
-                            BinOp::Eq => Ok(Some(LoxType::Boolean(string_left == string_right))),
-                            BinOp::Ne => Ok(Some(LoxType::Boolean(string_left != string_right))),
-                            _ => Err(InterpreterError::Runtime(
-                                "Operand must be a number".to_string(),
-                            )),
-                        },
-                        (left_val, right_val) => match op {
-                            BinOp::Eq => Ok(Some(LoxType::Boolean(left_val == right_val))),
-                            BinOp::Ne => Ok(Some(LoxType::Boolean(left_val != right_val))),
-                            _ => Err(InterpreterError::Runtime(
-                                "Operand must be a number".to_string(),
-                            )),
-                        },
+                    match op {
+                        BinOp::Add => (left_val + right_val).map(Some),
+                        BinOp::Sub => (left_val - right_val).map(Some),
+                        BinOp::Mul => (left_val * right_val).map(Some),
+                        BinOp::Div => (left_val / right_val).map(Some),
+                        BinOp::Lt | BinOp::Le | BinOp::Gt | BinOp::Ge => {
+                            if let (LoxType::Number(left_num), LoxType::Number(right_num)) =
+                                (left_val.into_inner(), right_val.into_inner())
+                            {
+                                match op {
+                                    BinOp::Lt => Ok(Some(LoxType::Boolean(left_num < right_num))),
+                                    BinOp::Le => Ok(Some(LoxType::Boolean(left_num <= right_num))),
+                                    BinOp::Gt => Ok(Some(LoxType::Boolean(left_num > right_num))),
+                                    BinOp::Ge => Ok(Some(LoxType::Boolean(left_num >= right_num))),
+                                    _ => unreachable!(),
+                                }
+                            } else {
+                                Err(InterpreterError::Runtime(
+                                    "Operand should be a number".to_string(),
+                                ))
+                            }
+                        }
+                        BinOp::Eq => Ok(Some(LoxType::Boolean(left_val == right_val))),
+                        BinOp::Ne => Ok(Some(LoxType::Boolean(left_val != right_val))),
                     }
                 } else {
                     Err(InterpreterError::Runtime(
@@ -170,7 +164,12 @@ impl Expr {
                     )))
                 }
             }
-            Expr::Return(expr) => expr.evaluate(runtime),
+            Expr::Return(opt) => match opt {
+                Some(expr) => Ok(expr
+                    .evaluate(runtime)?
+                    .map(|val| LoxType::Return(Box::new(val)))),
+                None => Ok(Some(LoxType::Return(Box::new(LoxType::Nil)))),
+            },
         }
     }
 }

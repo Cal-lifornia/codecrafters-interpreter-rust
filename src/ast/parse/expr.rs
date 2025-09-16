@@ -54,8 +54,13 @@ impl Parser {
                         Expr::Print(Box::new(self.parse_expr(0)?))
                     }
                     ReservedWord::Return => {
-                        self.bump();
-                        Expr::Return(Box::new(self.parse_expr(0)?))
+                        let next = self.look_ahead(1);
+                        if next == Token::Semicolon {
+                            Expr::Return(None)
+                        } else {
+                            self.bump();
+                            Expr::Return(Some(Box::new(self.parse_expr(0)?)))
+                        }
                     }
                     _ => todo!(),
                 },
