@@ -1,7 +1,7 @@
 use crate::{
     ast::{item::Item, Expr, Group},
     error::InterpreterError,
-    runtime::{loxtype::LoxType, program::Runtime},
+    runtime::{environment::Environment, loxtype::LoxType},
 };
 #[derive(Debug, Clone, PartialEq)]
 pub enum Stmt {
@@ -14,20 +14,20 @@ pub enum Stmt {
 }
 
 impl Stmt {
-    pub fn run(&self, runtime: &mut Runtime) -> Result<Option<LoxType>, InterpreterError> {
+    pub fn run(&self, env: &mut Environment) -> Result<Option<LoxType>, InterpreterError> {
         match self {
             Stmt::Item(item) => {
-                item.run(runtime)?;
+                item.run(env)?;
                 Ok(None)
             }
-            Stmt::Expr(expr) => expr.evaluate(runtime),
-            Stmt::Block(block) => block.run(runtime),
+            Stmt::Expr(expr) => expr.evaluate(env),
+            Stmt::Block(block) => block.run(env),
             Stmt::If(cond, if_kind, if_else) => {
-                if let Some(cond_eval) = cond.0.evaluate(runtime)? {
+                if let Some(cond_eval) = cond.0.evaluate(env)? {
                     if cond_eval.is_truthy() {
-                        if_kind.run(runtime)
+                        if_kind.run(env)
                     } else if let Some(else_kind) = if_else {
-                        else_kind.run(runtime)
+                        else_kind.run(env)
                     } else {
                         Ok(None)
                     }
@@ -39,13 +39,8 @@ impl Stmt {
             }
             Stmt::WhileLoop(cond, kind) => {
                 let mut res: Option<LoxType> = None;
-                while cond
-                    .0
-                    .evaluate(runtime)?
-                    .unwrap_or(LoxType::Nil)
-                    .is_truthy()
-                {
-                    res = kind.run(runtime)?;
+                while cond.0.evaluate(env)?.unwrap_or(LoxType::Nil).is_truthy() {
+                    res = kind.run(env)?;
                     if matches!(res, Some(LoxType::Return(_))) {
                         break;
                     }
@@ -53,23 +48,23 @@ impl Stmt {
                 Ok(res)
             }
             Stmt::ForLoop(args, kind) => {
-                runtime.scope.add_local();
+                env.enter_scope();
                 let mut res: Option<LoxType> = None;
                 if let Some(init) = &args.init {
-                    init.run(runtime)?;
+                    init.run(env)?;
                 }
                 if let Stmt::Expr(cond) = &args.cond {
-                    while cond.evaluate(runtime)?.unwrap_or(LoxType::Nil).is_truthy() {
-                        res = kind.run(runtime)?;
+                    while cond.evaluate(env)?.unwrap_or(LoxType::Nil).is_truthy() {
+                        res = kind.run(env)?;
                         if matches!(res, Some(LoxType::Return(_))) {
                             break;
                         }
                         if let Some(stmt) = &args.stmt {
-                            stmt.run(runtime)?;
+                            stmt.run(env)?;
                         }
                     }
                 }
-                runtime.scope.drop_local();
+                env.exit_scope();
                 Ok(res)
             }
         }
@@ -82,16 +77,16 @@ pub struct Block {
 }
 
 impl Block {
-    pub fn run(&self, runtime: &mut Runtime) -> Result<Option<LoxType>, InterpreterError> {
-        runtime.scope.add_local();
+    pub fn run(&self, env: &mut Environment) -> Result<Option<LoxType>, InterpreterError> {
+        env.enter_scope();
         for stmt in self.stmts.clone() {
-            let result = stmt.run(runtime)?;
+            let result = stmt.run(env)?;
             if matches!(result, Some(LoxType::Return(_))) {
-                runtime.scope.drop_local();
+                env.exit_scope();
                 return Ok(result);
             }
         }
-        runtime.scope.drop_local();
+        env.exit_scope();
         Ok(Some(LoxType::Nil))
     }
 }
@@ -103,10 +98,10 @@ pub enum ControlFlowStmt {
 }
 
 impl ControlFlowStmt {
-    pub fn run(&self, runtime: &mut Runtime) -> Result<Option<LoxType>, InterpreterError> {
+    pub fn run(&self, env: &mut Environment) -> Result<Option<LoxType>, InterpreterError> {
         match self {
-            ControlFlowStmt::Stmt(stmt) => stmt.run(runtime),
-            ControlFlowStmt::Block(block) => block.run(runtime),
+            ControlFlowStmt::Stmt(stmt) => stmt.run(env),
+            ControlFlowStmt::Block(block) => block.run(env),
         }
     }
 }

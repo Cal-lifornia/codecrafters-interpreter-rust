@@ -5,11 +5,11 @@ use crate::{
         LogicOp,
     },
     error::InterpreterError,
-    runtime::{loxtype::LoxType, program::Runtime},
+    runtime::{environment::Environment, loxtype::LoxType},
 };
 
 impl Expr {
-    pub fn evaluate(&self, runtime: &mut Runtime) -> Result<Option<LoxType>, InterpreterError> {
+    pub fn evaluate(&self, env: &mut Environment) -> Result<Option<LoxType>, InterpreterError> {
         match self {
             Expr::Literal(literal) => match literal {
                 Literal::Number(num) => Ok(Some(LoxType::Number(*num))),
@@ -18,15 +18,15 @@ impl Expr {
                 Literal::False => Ok(Some(LoxType::Boolean(false))),
                 Literal::Nil => Ok(Some(LoxType::Nil)),
             },
-            Expr::Group(group) => group.0.evaluate(runtime),
+            Expr::Group(group) => group.0.evaluate(env),
             Expr::Unary(unary_op, expr) => match unary_op {
-                UnaryOp::Bang => match expr.evaluate(runtime)? {
+                UnaryOp::Bang => match expr.evaluate(env)? {
                     Some(lox) => Ok(Some(!lox)),
                     None => Err(InterpreterError::Runtime(
                         "Incorrect expression type".to_string(),
                     )),
                 },
-                UnaryOp::Minus => match expr.evaluate(runtime)? {
+                UnaryOp::Minus => match expr.evaluate(env)? {
                     Some(lox) => (-lox).map(Some),
                     _ => Err(InterpreterError::Runtime(
                         "Operand must be a number".to_string(),
@@ -35,7 +35,7 @@ impl Expr {
             },
             Expr::Arithmetic(op, left, right) => {
                 if let (Some(left_val), Some(right_val)) =
-                    (left.evaluate(runtime)?, right.evaluate(runtime)?)
+                    (left.evaluate(env)?, right.evaluate(env)?)
                 {
                     match op {
                         BinOp::Add => (left_val + right_val).map(Some),
@@ -70,7 +70,7 @@ impl Expr {
             }
             Expr::Conditional(op, left, right) => match op {
                 LogicOp::Or => {
-                    let Some(left_val) = left.evaluate(runtime)? else {
+                    let Some(left_val) = left.evaluate(env)? else {
                         return Err(InterpreterError::Runtime(
                             "Expr must not be empty".to_string(),
                         ));
@@ -78,7 +78,7 @@ impl Expr {
                     if left_val.is_truthy() {
                         return Ok(Some(left_val));
                     }
-                    let Some(right_val) = right.evaluate(runtime)? else {
+                    let Some(right_val) = right.evaluate(env)? else {
                         return Err(InterpreterError::Runtime(
                             "Expr must not be empty".to_string(),
                         ));
@@ -90,7 +90,7 @@ impl Expr {
                 }
 
                 LogicOp::And => {
-                    let Some(left_val) = left.evaluate(runtime)? else {
+                    let Some(left_val) = left.evaluate(env)? else {
                         return Err(InterpreterError::Runtime(
                             "Expr must not be empty".to_string(),
                         ));
@@ -98,7 +98,7 @@ impl Expr {
                     if !left_val.is_truthy() {
                         return Ok(Some(LoxType::Boolean(false)));
                     }
-                    let Some(right_val) = right.evaluate(runtime)? else {
+                    let Some(right_val) = right.evaluate(env)? else {
                         return Err(InterpreterError::Runtime(
                             "Expr must not be empty".to_string(),
                         ));
@@ -109,15 +109,15 @@ impl Expr {
                     Ok(Some(LoxType::Boolean(false)))
                 }
             },
-            Expr::Variable(ident) => match runtime.scope.find_var(ident) {
-                Some(val) => Ok(Some(val.clone())),
+            Expr::Variable(ident) => match env.find(ident) {
+                Some(val) => Ok(Some(val)),
                 None => Err(InterpreterError::Runtime(format!(
                     "Undefined variable '{ident}'"
                 ))),
             },
             Expr::InitVar(ident, expr) => {
-                if let Some(value) = expr.evaluate(runtime)? {
-                    runtime.scope.insert_var(ident.clone(), value.clone());
+                if let Some(value) = expr.evaluate(env)? {
+                    env.insert_var(ident.clone(), value.clone());
                     Ok(Some(value))
                 } else {
                     Err(InterpreterError::Syntax(format!(
@@ -126,8 +126,8 @@ impl Expr {
                 }
             }
             Expr::UpdateVar(ident, expr) => {
-                if let Some(value) = expr.evaluate(runtime)? {
-                    runtime.scope.update_var(ident, value.clone())?;
+                if let Some(value) = expr.evaluate(env)? {
+                    env.update(ident, value.clone())?;
                     Ok(Some(value))
                 } else {
                     Err(InterpreterError::Syntax(format!(
@@ -136,7 +136,7 @@ impl Expr {
                 }
             }
             Expr::Print(expr) => {
-                match expr.evaluate(runtime)? {
+                match expr.evaluate(env)? {
                     Some(val) => println!("{val}"),
                     None => println!(),
                 }
@@ -145,15 +145,9 @@ impl Expr {
             Expr::MethodCall(ident, args) => {
                 let sig = FunSig::method_call(ident.clone(), args.len());
                 let mut vals = vec![];
-                if let LoxType::Method(fun) = runtime
-                    .scope
-                    .clone()
-                    .find_var(ident)
-                    .unwrap_or(&LoxType::Nil)
-                    .into_inner()
-                {
+                if let LoxType::Method(fun) = env.find(ident).unwrap_or(LoxType::Nil).into_inner() {
                     for arg in args.iter() {
-                        if let Some(val) = arg.evaluate(runtime)? {
+                        if let Some(val) = arg.evaluate(env)? {
                             vals.push(val);
                         } else {
                             return Err(InterpreterError::Syntax(
@@ -161,8 +155,8 @@ impl Expr {
                             ));
                         }
                     }
-                    fun.run(runtime, vals)
-                } else if let Some(fun) = runtime.get_native_fun(&sig) {
+                    fun.run(env, vals)
+                } else if let Some(fun) = env.get_native_fun(&sig) {
                     fun.run().map(Some)
                 } else {
                     Err(InterpreterError::Runtime(format!(
@@ -172,7 +166,7 @@ impl Expr {
             }
             Expr::Return(opt) => match opt {
                 Some(expr) => Ok(expr
-                    .evaluate(runtime)?
+                    .evaluate(env)?
                     .map(|val| LoxType::Return(Box::new(val)))),
                 None => Ok(Some(LoxType::Return(Box::new(LoxType::Nil)))),
             },

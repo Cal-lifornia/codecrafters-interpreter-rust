@@ -1,7 +1,7 @@
 use crate::{
     ast::{ident::Ident, stmt::Block},
     error::InterpreterError,
-    runtime::{loxtype::LoxType, program::Runtime},
+    runtime::{environment::Environment, loxtype::LoxType},
 };
 
 #[derive(Debug, Clone, PartialEq)]
@@ -10,10 +10,10 @@ pub enum Item {
 }
 
 impl Item {
-    pub fn run(&self, runtime: &mut Runtime) -> Result<(), InterpreterError> {
+    pub fn run(&self, env: &mut Environment) -> Result<(), InterpreterError> {
         match self {
             Item::Fun(function) => {
-                runtime.scope.insert_var(
+                env.insert_var(
                     function.sig.ident.clone(),
                     LoxType::Method(function.clone()),
                 );
@@ -32,20 +32,21 @@ pub struct Function {
 impl Function {
     pub fn run(
         &self,
-        runtime: &mut Runtime,
+        env: &mut Environment,
         args: Vec<LoxType>,
     ) -> Result<Option<LoxType>, InterpreterError> {
-        runtime.scope.add_local();
+        let closure = &env.capture_context();
+        env.enter_closure(closure);
         args.iter()
             .zip(self.sig.inputs.iter())
             .for_each(|(arg, input)| {
-                runtime.scope.insert_var(input.clone(), arg.clone());
+                env.insert_var(input.clone(), arg.clone());
             });
         let res = self
             .body
-            .run(runtime)
+            .run(env)
             .map(|val| val.map(|lox| lox.into_inner().clone()));
-        runtime.scope.drop_local();
+        env.exit_closure(closure);
         res
     }
 }
