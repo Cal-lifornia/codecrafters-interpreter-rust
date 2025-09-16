@@ -57,13 +57,7 @@ impl Runtime {
         }
         Ok(())
     }
-    pub fn get_function(&self, sig: &FunSig) -> Option<Function> {
-        self.functions.get(sig).cloned()
-    }
 
-    pub fn insert_unique_function(&mut self, sig: FunSig, fun: Function) {
-        self.functions.insert(sig, fun);
-    }
     pub fn get_native_fun(&self, sig: &FunSig) -> Option<&dyn NativeFunction> {
         self.native_functions.get(sig).map(|fun| fun.as_ref())
     }

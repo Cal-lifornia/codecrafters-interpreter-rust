@@ -3,7 +3,7 @@ use std::{
     ops::{Add, Div, Mul, Neg, Not, Sub},
 };
 
-use crate::error::InterpreterError;
+use crate::{ast::item::Function, error::InterpreterError};
 
 #[derive(Debug, Clone)]
 pub enum LoxType {
@@ -13,6 +13,7 @@ pub enum LoxType {
     Nil,
     Variable(Box<LoxType>),
     Return(Box<LoxType>),
+    Method(Function),
 }
 
 impl LoxType {
@@ -24,14 +25,15 @@ impl LoxType {
             Self::Nil => false,
             Self::Variable(val) => val.is_truthy(),
             Self::Return(val) => val.is_truthy(),
+            Self::Method(_) => false,
         }
     }
 
     pub fn into_inner(&self) -> &Self {
-        if let Self::Return(val) = self {
-            val
-        } else {
-            self
+        match self {
+            Self::Variable(val) => val,
+            Self::Return(val) => val,
+            _ => self,
         }
     }
 }
@@ -45,6 +47,7 @@ impl Display for LoxType {
             Self::Nil => write!(f, "nil"),
             Self::Variable(val) => write!(f, "{val}"),
             Self::Return(val) => write!(f, "{val}"),
+            Self::Method(fun) => write!(f, "<fn {}>", fun.sig.ident),
         }
     }
 }
@@ -60,6 +63,7 @@ impl Not for LoxType {
             LoxType::Nil => LoxType::Boolean(true),
             LoxType::Variable(lox_type) => !(*lox_type),
             LoxType::Return(lox_type) => !(*lox_type),
+            LoxType::Method(_) => LoxType::Boolean(false),
         }
     }
 }

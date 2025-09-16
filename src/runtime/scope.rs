@@ -83,14 +83,4 @@ impl Scope {
             "variable {ident} not found"
         )))
     }
-
-    pub fn insert_function_var(&mut self, ident: Ident) {
-        let value = LoxType::String(format!("<fn {ident}>"));
-        if self.stack.is_empty() {
-            self.local.insert_var_with_val(ident, value);
-        } else {
-            let first = self.stack.get_mut(0).unwrap();
-            first.insert_var_with_val(ident, value);
-        }
-    }
 }

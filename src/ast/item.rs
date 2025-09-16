@@ -13,10 +13,10 @@ impl Item {
     pub fn run(&self, runtime: &mut Runtime) -> Result<(), InterpreterError> {
         match self {
             Item::Fun(function) => {
-                runtime.insert_unique_function(function.sig.clone(), function.clone());
-                runtime
-                    .scope
-                    .insert_function_var(function.sig.ident.clone());
+                runtime.scope.insert_var(
+                    function.sig.ident.clone(),
+                    LoxType::Method(function.clone()),
+                );
                 Ok(())
             }
         }
@@ -35,14 +35,16 @@ impl Function {
         runtime: &mut Runtime,
         args: Vec<LoxType>,
     ) -> Result<Option<LoxType>, InterpreterError> {
-        let method = self.clone();
         runtime.scope.add_local();
         args.iter()
             .zip(self.sig.inputs.iter())
             .for_each(|(arg, input)| {
                 runtime.scope.insert_var(input.clone(), arg.clone());
             });
-        let res = method.body.run(runtime);
+        let res = self
+            .body
+            .run(runtime)
+            .map(|val| val.map(|lox| lox.into_inner().clone()));
         runtime.scope.drop_local();
         res
     }

@@ -145,7 +145,13 @@ impl Expr {
             Expr::MethodCall(ident, args) => {
                 let sig = FunSig::method_call(ident.clone(), args.len());
                 let mut vals = vec![];
-                if let Some(fun) = runtime.get_function(&sig) {
+                if let LoxType::Method(fun) = runtime
+                    .scope
+                    .clone()
+                    .find_var(ident)
+                    .unwrap_or(&LoxType::Nil)
+                    .into_inner()
+                {
                     for arg in args.iter() {
                         if let Some(val) = arg.evaluate(runtime)? {
                             vals.push(val);

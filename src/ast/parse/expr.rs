@@ -19,6 +19,39 @@ impl Parser {
         }
     }
 
+    pub fn parse_method_call(&mut self, ident: Ident) -> Result<Expr, InterpreterError> {
+        assert_eq!(self.current_token, Token::LeftParen);
+        self.bump();
+
+        let mut inputs = vec![];
+        loop {
+            if self.current_token == Token::RightParen {
+                break;
+            }
+            inputs.push(self.parse_expr(0)?);
+            self.bump();
+            if self.current_token == Token::Comma {
+                self.bump();
+                continue;
+            } else {
+                let next = self.look_ahead(1);
+                if next == Token::LeftParen {
+                    self.bump();
+                    if let Some(Expr::Variable(last)) = inputs.pop() {
+                        inputs.push(self.parse_method_call(last)?);
+                        break;
+                    } else {
+                        return Err(InterpreterError::Syntax("Invalid expr".to_string()));
+                    }
+                } else {
+                    break;
+                }
+            }
+        }
+        assert_eq!(self.current_token, Token::RightParen);
+        Ok(Expr::MethodCall(ident, inputs))
+    }
+
     pub fn parse_expr(&mut self, min_bp: u8) -> Result<Expr, InterpreterError> {
         let current = self.current_token.clone();
 
@@ -44,7 +77,7 @@ impl Parser {
                             }
                         } else {
                             return Err(InterpreterError::Syntax(format!(
-                                "invalid token: {}",
+                                "invalid token reserved: {}",
                                 self.current_token.clone()
                             )));
                         }
@@ -73,24 +106,7 @@ impl Parser {
                         Expr::UpdateVar(ident.clone(), Box::new(self.parse_expr(0)?))
                     } else if next == Token::LeftParen {
                         self.bump();
-                        self.bump();
-
-                        let mut inputs = vec![];
-                        loop {
-                            if self.current_token == Token::RightParen {
-                                break;
-                            }
-                            inputs.push(self.parse_expr(0)?);
-                            self.bump();
-                            if self.current_token == Token::Comma {
-                                self.bump();
-                                continue;
-                            } else {
-                                break;
-                            }
-                        }
-                        assert_eq!(self.current_token, Token::RightParen);
-                        Expr::MethodCall(ident, inputs)
+                        self.parse_method_call(ident)?
                     } else {
                         Expr::Variable(ident)
                     }
