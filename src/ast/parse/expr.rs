@@ -145,7 +145,10 @@ impl Parser {
             ) {
                 break;
             } else {
-                return Err(InterpreterError::Syntax(format!("invalid token: {}", next)));
+                return Err(InterpreterError::Runtime(format!(
+                    "invalid token: {}",
+                    next
+                )));
             }
         }
         Ok(lhs)

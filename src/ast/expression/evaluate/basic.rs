@@ -146,6 +146,14 @@ impl Expr {
                 let sig = FunSig::method_call(ident.clone(), args.len());
                 let mut vals = vec![];
                 if let LoxType::Method(fun) = env.find(ident).unwrap_or(LoxType::Nil).into_inner() {
+                    if fun.param_len() != args.len() {
+                        return Err(InterpreterError::Runtime(format!(
+                            "Fun {} expects {} args, got {}",
+                            fun.sig.ident,
+                            fun.param_len(),
+                            args.len()
+                        )));
+                    }
                     for arg in args.iter() {
                         if let Some(val) = arg.evaluate(env)? {
                             vals.push(val);

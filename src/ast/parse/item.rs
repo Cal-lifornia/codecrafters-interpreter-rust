@@ -56,7 +56,7 @@ impl Parser {
         Ok(Function {
             sig,
             body,
-            ctx: Context::dummy(),
+            closure: Context::dummy(),
         })
     }
 }

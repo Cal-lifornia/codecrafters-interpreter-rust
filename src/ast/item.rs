@@ -17,7 +17,7 @@ impl Item {
         match self {
             Item::Fun(function) => {
                 let mut fun_clone = function.clone();
-                fun_clone.ctx = env.capture_context();
+                fun_clone.closure = env.capture_context();
                 env.insert_var(function.sig.ident.clone(), LoxType::Method(fun_clone));
                 Ok(())
             }
@@ -29,7 +29,7 @@ impl Item {
 pub struct Function {
     pub sig: FunSig,
     pub body: Block,
-    pub ctx: Ctx,
+    pub closure: Ctx,
 }
 
 impl PartialEq for Function {
@@ -45,7 +45,7 @@ impl Function {
         args: Vec<LoxType>,
     ) -> Result<Option<LoxType>, InterpreterError> {
         let current_ctx = &env.capture_context();
-        env.enter_closure(&self.ctx);
+        env.enter_closure(&self.closure);
         args.iter()
             .zip(self.sig.inputs.iter())
             .for_each(|(arg, input)| {
@@ -57,6 +57,9 @@ impl Function {
             .map(|val| val.map(|lox| lox.into_inner().clone()));
         env.exit_closure(current_ctx);
         res
+    }
+    pub fn param_len(&self) -> usize {
+        self.sig.inputs.len()
     }
 }
 
