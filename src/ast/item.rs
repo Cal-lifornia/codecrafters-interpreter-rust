@@ -1,7 +1,10 @@
 use crate::{
     ast::{ident::Ident, stmt::Block},
     error::InterpreterError,
-    runtime::{environment::Environment, loxtype::LoxType},
+    runtime::{
+        environment::{Ctx, Environment},
+        loxtype::LoxType,
+    },
 };
 
 #[derive(Debug, Clone, PartialEq)]
@@ -13,20 +16,26 @@ impl Item {
     pub fn run(&self, env: &mut Environment) -> Result<(), InterpreterError> {
         match self {
             Item::Fun(function) => {
-                env.insert_var(
-                    function.sig.ident.clone(),
-                    LoxType::Method(function.clone()),
-                );
+                let mut fun_clone = function.clone();
+                fun_clone.ctx = env.capture_context();
+                env.insert_var(function.sig.ident.clone(), LoxType::Method(fun_clone));
                 Ok(())
             }
         }
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 pub struct Function {
     pub sig: FunSig,
     pub body: Block,
+    pub ctx: Ctx,
+}
+
+impl PartialEq for Function {
+    fn eq(&self, other: &Self) -> bool {
+        self.sig == other.sig && self.body == other.body
+    }
 }
 
 impl Function {
@@ -35,8 +44,8 @@ impl Function {
         env: &mut Environment,
         args: Vec<LoxType>,
     ) -> Result<Option<LoxType>, InterpreterError> {
-        let closure = &env.capture_context();
-        env.enter_closure(closure);
+        let current_ctx = &env.capture_context();
+        env.enter_closure(&self.ctx);
         args.iter()
             .zip(self.sig.inputs.iter())
             .for_each(|(arg, input)| {
@@ -46,7 +55,7 @@ impl Function {
             .body
             .run(env)
             .map(|val| val.map(|lox| lox.into_inner().clone()));
-        env.exit_closure(closure);
+        env.exit_closure(current_ctx);
         res
     }
 }

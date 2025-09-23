@@ -5,6 +5,7 @@ use crate::{
         parse::Parser,
     },
     error::InterpreterError,
+    runtime::environment::{Context, Ctx},
     tokens::Token,
 };
 
@@ -52,6 +53,10 @@ impl Parser {
 
         let body = self.parse_block()?;
 
-        Ok(Function { sig, body })
+        Ok(Function {
+            sig,
+            body,
+            ctx: Context::dummy(),
+        })
     }
 }

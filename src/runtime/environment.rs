@@ -46,6 +46,13 @@ impl Context {
     pub fn get_closing(&self) -> Option<Ctx> {
         self.enclosing.clone()
     }
+
+    pub fn dummy() -> Ctx {
+        Rc::new(RefCell::new(Context {
+            values: HashMap::new(),
+            enclosing: None,
+        }))
+    }
 }
 
 impl Environment {
