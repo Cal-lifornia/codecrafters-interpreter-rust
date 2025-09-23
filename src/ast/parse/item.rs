@@ -5,7 +5,7 @@ use crate::{
         parse::Parser,
     },
     error::InterpreterError,
-    runtime::environment::{Context, Ctx},
+    runtime::environment::Context,
     tokens::Token,
 };
 

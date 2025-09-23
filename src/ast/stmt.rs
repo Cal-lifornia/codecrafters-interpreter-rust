@@ -24,6 +24,9 @@ impl Stmt {
             Stmt::Block(block) => block.run(env),
             Stmt::If(cond, if_kind, if_else) => {
                 if let Some(cond_eval) = cond.0.evaluate(env)? {
+                    // println!("cond_eval: {cond_eval}");
+                    // println!("truthy cond_eval: {}", cond_eval.is_truthy());
+                    // println!("if block; cond: {cond:#?}, if_kind: {if_kind:#?}");
                     if cond_eval.is_truthy() {
                         if_kind.run(env)
                     } else if let Some(else_kind) = if_else {

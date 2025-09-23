@@ -91,6 +91,7 @@ impl Environment {
     }
 
     pub fn enter_closure(&mut self, closure: &Ctx) {
+        self.enter_scope();
         self.set_context(closure);
         self.enter_scope();
     }
@@ -101,7 +102,11 @@ impl Environment {
     }
 
     pub fn insert_var(&mut self, ident: Ident, val: LoxType) {
-        self.ctx.borrow_mut().set(ident, val);
+        if self.ctx.borrow().enclosing.is_none() {
+            self.globals.borrow_mut().set(ident, val);
+        } else {
+            self.ctx.borrow_mut().set(ident, val);
+        }
     }
 
     pub fn find(&self, ident: &Ident) -> Option<LoxType> {
@@ -116,6 +121,7 @@ impl Environment {
                 ctx = enclosing;
                 result = ctx.borrow().get(ident).cloned();
             } else {
+                result = self.globals.borrow().get(ident).cloned();
                 break;
             }
         }
@@ -134,6 +140,10 @@ impl Environment {
             if let Some(enclosing) = enclosing {
                 ctx = enclosing;
             } else {
+                if let Some(res) = self.globals.borrow_mut().get_mut(ident) {
+                    *res = val;
+                    return Ok(());
+                }
                 break;
             }
         }
