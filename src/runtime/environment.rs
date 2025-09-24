@@ -13,7 +13,6 @@ pub type Ctx = Rc<RefCell<Context>>;
 
 pub struct Environment {
     ctx: Ctx,
-    globals: Ctx,
     native_functions: HashMap<FunSig, Box<dyn NativeFunction>>,
 }
 
@@ -57,7 +56,6 @@ impl Context {
 
 impl Environment {
     pub fn new() -> Self {
-        let globals = Context::new(None);
         let mut native_functions: HashMap<FunSig, Box<dyn NativeFunction>> = HashMap::new();
         native_functions.insert(
             FunSig {
@@ -67,8 +65,7 @@ impl Environment {
             Box::new(Clock),
         );
         Self {
-            ctx: globals.clone(),
-            globals,
+            ctx: Context::new(None),
             native_functions,
         }
     }
@@ -91,7 +88,6 @@ impl Environment {
     }
 
     pub fn enter_closure(&mut self, closure: &Ctx) {
-        self.enter_scope();
         self.set_context(closure);
         self.enter_scope();
     }
@@ -102,11 +98,7 @@ impl Environment {
     }
 
     pub fn insert_var(&mut self, ident: Ident, val: LoxType) {
-        if self.ctx.borrow().enclosing.is_none() {
-            self.globals.borrow_mut().set(ident, val);
-        } else {
-            self.ctx.borrow_mut().set(ident, val);
-        }
+        self.ctx.borrow_mut().set(ident, val);
     }
 
     pub fn find(&self, ident: &Ident) -> Option<LoxType> {
@@ -121,7 +113,6 @@ impl Environment {
                 ctx = enclosing;
                 result = ctx.borrow().get(ident).cloned();
             } else {
-                result = self.globals.borrow().get(ident).cloned();
                 break;
             }
         }
@@ -140,10 +131,10 @@ impl Environment {
             if let Some(enclosing) = enclosing {
                 ctx = enclosing;
             } else {
-                if let Some(res) = self.globals.borrow_mut().get_mut(ident) {
-                    *res = val;
-                    return Ok(());
-                }
+                // if let Some(res) = self.globals.borrow_mut().get_mut(ident) {
+                //     *res = val;
+                //     return Ok(());
+                // }
                 break;
             }
         }

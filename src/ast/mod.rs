@@ -1,6 +1,5 @@
-mod expression;
-pub mod stmt;
-pub use expression::*;
+pub mod expr;
 pub mod ident;
 pub mod item;
 pub mod parse;
+pub mod stmt;

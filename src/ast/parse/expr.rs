@@ -1,5 +1,9 @@
 use crate::{
-    ast::{ident::Ident, parse::Parser, BinOp, Expr, Group, Literal, LogicOp, UnaryOp},
+    ast::{
+        expr::{BinOp, Expr, Group, Literal, LogicOp, UnaryOp},
+        ident::Ident,
+        parse::Parser,
+    },
     error::InterpreterError,
     tokens::{ReservedWord, Token},
 };
@@ -8,7 +12,7 @@ impl Parser {
     pub fn parse_group(&mut self) -> Result<Group, InterpreterError> {
         assert_eq!(self.current_token, Token::LeftParen);
         self.bump();
-        let group = Group(self.parse_expr(0)?);
+        let group = Group(self.parse_expr(0, false)?);
         let next = self.look_ahead(1);
         if next == Token::RightParen {
             // Bump past right paren
@@ -28,7 +32,7 @@ impl Parser {
             if self.current_token == Token::RightParen {
                 break;
             }
-            inputs.push(self.parse_expr(0)?);
+            inputs.push(self.parse_expr(0, false)?);
             self.bump();
             if self.current_token == Token::Comma {
                 self.bump();
@@ -52,14 +56,14 @@ impl Parser {
         Ok(Expr::MethodCall(ident, inputs))
     }
 
-    pub fn parse_expr(&mut self, min_bp: u8) -> Result<Expr, InterpreterError> {
+    pub fn parse_expr(&mut self, min_bp: u8, var_init: bool) -> Result<Expr, InterpreterError> {
         let current = self.current_token.clone();
 
         let mut lhs = if let Some(literal) = Literal::from_token(&current) {
             Expr::Literal(literal)
         } else if let Some(op) = UnaryOp::from_token(&current) {
             self.bump();
-            Expr::Unary(op, Box::new(self.parse_expr(9)?))
+            Expr::Unary(op, Box::new(self.parse_expr(9, var_init)?))
         } else {
             match current {
                 Token::LeftParen => Expr::Group(Box::new(self.parse_group()?)),
@@ -71,7 +75,7 @@ impl Parser {
                             if next == Token::Equal {
                                 self.bump();
                                 self.bump();
-                                Expr::InitVar(ident.clone(), Box::new(self.parse_expr(0)?))
+                                Expr::InitVar(ident.clone(), Box::new(self.parse_expr(0, true)?))
                             } else {
                                 Expr::InitVar(ident.clone(), Box::new(Expr::Literal(Literal::Nil)))
                             }
@@ -84,7 +88,7 @@ impl Parser {
                     }
                     ReservedWord::Print => {
                         self.bump();
-                        Expr::Print(Box::new(self.parse_expr(0)?))
+                        Expr::Print(Box::new(self.parse_expr(0, var_init)?))
                     }
                     ReservedWord::Return => {
                         let next = self.look_ahead(1);
@@ -92,7 +96,7 @@ impl Parser {
                             Expr::Return(None)
                         } else {
                             self.bump();
-                            Expr::Return(Some(Box::new(self.parse_expr(0)?)))
+                            Expr::Return(Some(Box::new(self.parse_expr(0, var_init)?)))
                         }
                     }
                     _ => todo!(),
@@ -103,11 +107,16 @@ impl Parser {
                     if next == Token::Equal {
                         self.bump();
                         self.bump();
-                        Expr::UpdateVar(ident.clone(), Box::new(self.parse_expr(0)?))
+                        Expr::UpdateVar(ident.clone(), Box::new(self.parse_expr(0, var_init)?))
                     } else if next == Token::LeftParen {
                         self.bump();
                         self.parse_method_call(ident)?
                     } else {
+                        if var_init {
+                            return Err(InterpreterError::Syntax(
+                                "Cannot initialise vars to the value of another var".to_string(),
+                            ));
+                        }
                         Expr::Variable(ident)
                     }
                 }
@@ -149,7 +158,7 @@ impl Parser {
                 self.bump(); // Bump past op
                 self.bump(); // Bump to update current token for parse
 
-                let rhs = self.parse_expr(r_bp)?;
+                let rhs = self.parse_expr(r_bp, var_init)?;
                 lhs = op.create_expression(lhs, rhs);
             } else if matches!(
                 next,

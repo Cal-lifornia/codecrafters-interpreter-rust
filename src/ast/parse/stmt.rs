@@ -1,5 +1,6 @@
 use crate::{
     ast::{
+        expr::Expr,
         item::Item,
         parse::Parser,
         stmt::{Block, ControlFlowStmt, ForLoopArgs, Stmt},
@@ -48,7 +49,7 @@ impl Parser {
                 Ok(Stmt::Item(Item::Fun(function)))
             }
             _ => {
-                let stmt = self.parse_expr(0)?;
+                let stmt = self.parse_expr(0, false)?;
                 let next = self.look_ahead(1);
                 if matches!(next, Token::Semicolon | Token::RightParen) {
                     self.bump();
@@ -98,8 +99,7 @@ impl Parser {
             let init = self.parse_stmt()?;
             if matches!(
                 init,
-                Stmt::Expr(crate::ast::Expr::InitVar(_, _))
-                    | Stmt::Expr(crate::ast::Expr::UpdateVar(_, _))
+                Stmt::Expr(Expr::InitVar(_, _)) | Stmt::Expr(Expr::UpdateVar(_, _))
             ) {
                 Some(init)
             } else {
