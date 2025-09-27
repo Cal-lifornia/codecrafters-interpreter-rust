@@ -11,22 +11,15 @@ use crate::{
 
 pub type Ctx = Rc<RefCell<Context>>;
 
-pub struct Environment {
-    ctx: Ctx,
-    native_functions: HashMap<FunSig, Box<dyn NativeFunction>>,
-}
-
 #[derive(Debug, Clone)]
 pub struct Context {
     values: HashMap<Ident, LoxType>,
-    enclosing: Option<Ctx>,
 }
 
 impl Context {
-    pub fn new(enclosing: Option<Ctx>) -> Rc<RefCell<Self>> {
+    pub fn new() -> Rc<RefCell<Self>> {
         Rc::new(RefCell::new(Context {
             values: HashMap::new(),
-            enclosing,
         }))
     }
 
@@ -41,109 +34,112 @@ impl Context {
     pub fn get_mut(&mut self, ident: &Ident) -> Option<&mut LoxType> {
         self.values.get_mut(ident)
     }
-
-    pub fn get_closing(&self) -> Option<Ctx> {
-        self.enclosing.clone()
-    }
-
-    pub fn dummy() -> Ctx {
-        Rc::new(RefCell::new(Context {
-            values: HashMap::new(),
-            enclosing: None,
-        }))
-    }
+}
+#[derive(Debug, Clone)]
+pub struct Environment {
+    ctx: Vec<Ctx>,
+    pub locals: HashMap<Ident, usize>,
 }
 
 impl Environment {
     pub fn new() -> Self {
-        let mut native_functions: HashMap<FunSig, Box<dyn NativeFunction>> = HashMap::new();
-        native_functions.insert(
-            FunSig {
-                ident: Ident("clock".into()),
-                inputs: vec![],
-            },
-            Box::new(Clock),
-        );
         Self {
-            ctx: Context::new(None),
-            native_functions,
+            locals: HashMap::new(),
+            ctx: vec![Context::new()],
         }
     }
 
-    pub fn set_context(&mut self, ctx: &Ctx) {
-        self.ctx = ctx.clone()
+    pub fn global_scope(&self) -> bool {
+        self.ctx.len() == 1
     }
 
-    pub fn capture_context(&self) -> Ctx {
-        self.ctx.clone()
+    pub fn set_locals(&mut self, locals: HashMap<Ident, usize>) {
+        self.locals = locals
     }
 
     pub fn enter_scope(&mut self) {
-        self.set_context(&Context::new(Some(self.ctx.clone())));
+        self.ctx.push(Context::new());
     }
 
     pub fn exit_scope(&mut self) {
-        let enclosing = self.ctx.borrow().get_closing().unwrap();
-        self.ctx = enclosing;
-    }
-
-    pub fn enter_closure(&mut self, closure: &Ctx) {
-        self.set_context(closure);
-        self.enter_scope();
-    }
-
-    pub fn exit_closure(&mut self, previous: &Ctx) {
-        self.exit_scope();
-        self.set_context(previous);
+        self.ctx.pop().unwrap();
     }
 
     pub fn insert_var(&mut self, ident: Ident, val: LoxType) {
-        self.ctx.borrow_mut().set(ident, val);
+        self.ctx.last_mut().unwrap().borrow_mut().set(ident, val);
     }
 
     pub fn find(&self, ident: &Ident) -> Option<LoxType> {
-        let mut ctx = self.ctx.clone();
-        let mut result = ctx.borrow().get(ident).cloned();
-        loop {
+        if let Some(dist) = self.locals.get(ident) {
+            self.find_at(ident, *dist)
+        } else {
+            // for ctx in self.ctx.iter().rev() {
+            //     let result = ctx.borrow().get(ident).cloned();
+            //     if result.is_some() {
+            //         return result;
+            //     }
+            // }
+            None
+        }
+    }
+
+    pub fn find_method(&self, ident: &Ident) -> Option<LoxType> {
+        for ctx in self.ctx.iter().rev() {
+            let result = ctx.borrow().get(ident).cloned();
             if result.is_some() {
-                break;
-            }
-            let enclosing = ctx.borrow().get_closing();
-            if let Some(enclosing) = enclosing {
-                ctx = enclosing;
-                result = ctx.borrow().get(ident).cloned();
-            } else {
-                break;
+                return result;
             }
         }
-        result
+        None
+    }
+
+    fn find_at(&self, ident: &Ident, dist: usize) -> Option<LoxType> {
+        if let Some(ctx) = self.ctx.get(dist) {
+            ctx.borrow().get(ident).cloned()
+        } else {
+            None
+        }
     }
 
     pub fn update(&mut self, ident: &Ident, val: LoxType) -> Result<(), InterpreterError> {
-        let mut ctx = self.ctx.clone();
+        if let Some(dist) = self.locals.get(ident) {
+            self.update_at(ident, val, *dist)
+        } else {
+            for ctx in self.ctx.iter().rev() {
+                if let Some(res) = ctx.borrow_mut().get_mut(ident) {
+                    *res = val;
+                    return Ok(());
+                }
+            }
 
-        loop {
+            Err(InterpreterError::Runtime(format!(
+                "variable {ident} not found"
+            )))
+        }
+    }
+
+    fn update_at(
+        &mut self,
+        ident: &Ident,
+        val: LoxType,
+        dist: usize,
+    ) -> Result<(), InterpreterError> {
+        if let Some(ctx) = self.ctx.get(dist) {
             if let Some(res) = ctx.borrow_mut().get_mut(ident) {
                 *res = val;
                 return Ok(());
-            }
-            let enclosing = ctx.borrow().get_closing();
-            if let Some(enclosing) = enclosing {
-                ctx = enclosing;
-            } else {
-                // if let Some(res) = self.globals.borrow_mut().get_mut(ident) {
-                //     *res = val;
-                //     return Ok(());
-                // }
-                break;
             }
         }
         Err(InterpreterError::Runtime(format!(
             "variable {ident} not found"
         )))
     }
-    pub fn get_native_fun(&self, sig: &FunSig) -> Option<&dyn NativeFunction> {
-        self.native_functions.get(sig).map(|fun| fun.as_ref())
+    pub fn get_local(&self, ident: &Ident) -> Option<LoxType> {
+        if let Some(dist) = self.locals.get(ident) {
+            self.find_at(ident, *dist)
+        } else {
+            self.find(ident)
+        }
     }
 }
 

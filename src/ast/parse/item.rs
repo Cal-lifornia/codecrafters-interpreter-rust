@@ -5,7 +5,7 @@ use crate::{
         parse::Parser,
     },
     error::InterpreterError,
-    runtime::environment::Context,
+    runtime::environment::Environment,
     tokens::Token,
 };
 
@@ -56,7 +56,7 @@ impl Parser {
         Ok(Function {
             sig,
             body,
-            closure: Context::dummy(),
+            closure: Environment::new(),
         })
     }
 }

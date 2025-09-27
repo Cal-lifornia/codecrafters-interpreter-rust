@@ -2,7 +2,7 @@ use crate::{
     ast::stmt::{Block, ControlFlowStmt, Stmt},
     error::InterpreterError,
     runtime::{
-        evaluate::{EvaluateResult, Interpreter},
+        interpreter::{EvaluateResult, Interpreter},
         loxtype::LoxType,
     },
 };
@@ -49,7 +49,7 @@ impl Interpreter {
                 Ok(res)
             }
             Stmt::ForLoop(args, kind) => {
-                self.compiler.env.enter_scope();
+                self.env.enter_scope();
                 let mut res: Option<LoxType> = None;
                 if let Some(init) = &args.init {
                     self.evaluate_stmt(init)?;
@@ -69,21 +69,21 @@ impl Interpreter {
                         }
                     }
                 }
-                self.compiler.env.exit_scope();
+                self.env.exit_scope();
                 Ok(res)
             }
         }
     }
     pub fn evaluate_block(&mut self, block: &Block) -> EvaluateResult {
-        self.compiler.env.enter_scope();
+        self.env.enter_scope();
         for stmt in block.stmts.clone() {
             let result = self.evaluate_stmt(&stmt)?;
             if matches!(result, Some(LoxType::Return(_))) {
-                self.compiler.env.exit_scope();
+                self.env.exit_scope();
                 return Ok(result);
             }
         }
-        self.compiler.env.exit_scope();
+        self.env.exit_scope();
         Ok(Some(LoxType::Nil))
     }
 

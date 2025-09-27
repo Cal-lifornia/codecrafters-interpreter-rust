@@ -112,11 +112,11 @@ impl Parser {
                         self.bump();
                         self.parse_method_call(ident)?
                     } else {
-                        if var_init {
-                            return Err(InterpreterError::Syntax(
-                                "Cannot initialise vars to the value of another var".to_string(),
-                            ));
-                        }
+                        // if var_init {
+                        //     return Err(InterpreterError::Syntax(
+                        //         "Cannot initialise vars to the value of another var".to_string(),
+                        //     ));
+                        // }
                         Expr::Variable(ident)
                     }
                 }

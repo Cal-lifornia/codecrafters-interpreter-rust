@@ -2,7 +2,7 @@ use crate::{
     ast::item::{Function, Item},
     error::InterpreterError,
     runtime::{
-        evaluate::{EvaluateResult, Interpreter},
+        interpreter::{EvaluateResult, Interpreter},
         loxtype::LoxType,
     },
 };
@@ -12,27 +12,25 @@ impl Interpreter {
         match item {
             Item::Fun(function) => {
                 let mut fun_clone = function.clone();
-                fun_clone.closure = self.compiler.env.capture_context();
-                self.compiler
-                    .env
-                    .insert_var(function.sig.ident.clone(), LoxType::Method(fun_clone));
+                fun_clone.closure = self.capture_env();
+                self.insert_var(function.sig.ident.clone(), LoxType::Method(fun_clone));
                 Ok(())
             }
         }
     }
 
     pub fn evaluate_function(&mut self, fun: &Function, args: Vec<LoxType>) -> EvaluateResult {
-        let current_ctx = &self.compiler.env.capture_context();
-        self.compiler.env.enter_closure(&fun.closure);
+        let current_env = self.capture_env();
+        self.enter_closure(fun.closure.clone());
         args.iter()
             .zip(fun.sig.inputs.iter())
             .for_each(|(arg, input)| {
-                self.compiler.env.insert_var(input.clone(), arg.clone());
+                self.env.insert_var(input.clone(), arg.clone());
             });
         let res = self
             .evaluate_block(&fun.body)
             .map(|val| val.map(|lox| lox.into_inner().clone()));
-        self.compiler.env.exit_closure(current_ctx);
+        self.exit_closure(current_env);
         res
     }
 }

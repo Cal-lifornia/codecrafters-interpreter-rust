@@ -1,6 +1,6 @@
 use crate::{
     ast::{ident::Ident, stmt::Block},
-    runtime::environment::Ctx,
+    runtime::environment::Environment,
 };
 
 #[derive(Debug, Clone, PartialEq)]
@@ -12,7 +12,7 @@ pub enum Item {
 pub struct Function {
     pub sig: FunSig,
     pub body: Block,
-    pub closure: Ctx,
+    pub closure: Environment,
 }
 
 impl PartialEq for Function {

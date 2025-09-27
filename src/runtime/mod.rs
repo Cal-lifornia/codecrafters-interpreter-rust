@@ -1,6 +1,5 @@
-pub mod compiler;
 pub mod environment;
-pub mod evaluate;
+pub mod interpreter;
 pub mod loxtype;
 pub mod program;
 pub mod resolver;

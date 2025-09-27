@@ -4,7 +4,7 @@ use crate::{
         item::FunSig,
     },
     error::InterpreterError,
-    runtime::{evaluate::Interpreter, loxtype::LoxType},
+    runtime::{interpreter::Interpreter, loxtype::LoxType},
 };
 
 impl Interpreter {
@@ -108,7 +108,7 @@ impl Interpreter {
                     Ok(Some(LoxType::Boolean(false)))
                 }
             },
-            Expr::Variable(ident) => match self.compiler.env.find(ident) {
+            Expr::Variable(ident) => match self.find(ident) {
                 Some(val) => Ok(Some(val)),
                 None => Err(InterpreterError::Runtime(format!(
                     "Undefined variable '{ident}'"
@@ -116,7 +116,7 @@ impl Interpreter {
             },
             Expr::InitVar(ident, expr) => {
                 if let Some(value) = self.evaluate_expr(expr)? {
-                    self.compiler.env.insert_var(ident.clone(), value.clone());
+                    self.insert_var(ident.clone(), value.clone());
                     Ok(Some(value))
                 } else {
                     Err(InterpreterError::Syntax(format!(
@@ -126,7 +126,7 @@ impl Interpreter {
             }
             Expr::UpdateVar(ident, expr) => {
                 if let Some(value) = self.evaluate_expr(expr)? {
-                    self.compiler.env.update(ident, value.clone())?;
+                    self.env.update(ident, value.clone())?;
                     Ok(Some(value))
                 } else {
                     Err(InterpreterError::Syntax(format!(
@@ -144,12 +144,9 @@ impl Interpreter {
             Expr::MethodCall(ident, args) => {
                 let sig = FunSig::method_call(ident.clone(), args.len());
                 let mut vals = vec![];
-                if let LoxType::Method(fun) = self
-                    .compiler
-                    .env
-                    .find(ident)
-                    .unwrap_or(LoxType::Nil)
-                    .into_inner()
+
+                if let LoxType::Method(fun) =
+                    self.find_method(ident).unwrap_or(LoxType::Nil).into_inner()
                 {
                     if fun.param_len() != args.len() {
                         return Err(InterpreterError::Runtime(format!(
@@ -169,7 +166,7 @@ impl Interpreter {
                         }
                     }
                     self.evaluate_function(fun, vals)
-                } else if let Some(fun) = self.compiler.env.get_native_fun(&sig) {
+                } else if let Some(fun) = self.get_native_fun(&sig) {
                     fun.run().map(Some)
                 } else {
                     Err(InterpreterError::Runtime(format!(

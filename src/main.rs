@@ -5,7 +5,7 @@ use std::process::exit;
 use codecrafters_interpreter::ast::parse::token_stream::TokenStream;
 use codecrafters_interpreter::ast::parse::Parser;
 use codecrafters_interpreter::error::InterpreterError;
-use codecrafters_interpreter::runtime::evaluate::Interpreter;
+use codecrafters_interpreter::runtime::interpreter::Interpreter;
 use codecrafters_interpreter::runtime::program::run_program;
 use codecrafters_interpreter::tokens::parse_tokens;
 use codecrafters_interpreter::tokens::Lexer;
