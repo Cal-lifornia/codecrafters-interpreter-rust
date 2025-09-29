@@ -1,10 +1,41 @@
-use crate::{
-    ast::{ident::Ident, stmt::Block},
-    runtime::environment::Environment,
-};
+use lox_interpreter::Environment;
+
+use crate::ast::{Attribute, ident::Ident, stmt::Block};
+
+#[derive(Debug, Clone)]
+pub struct Item {
+    kind: ItemKind,
+    attr: Attribute,
+}
+
+impl PartialEq for Item {
+    fn eq(&self, other: &Self) -> bool {
+        self.kind == other.kind
+    }
+}
+
+impl PartialEq<ItemKind> for Item {
+    fn eq(&self, other: &ItemKind) -> bool {
+        self.kind() == other
+    }
+}
+
+impl Item {
+    pub fn new(kind: ItemKind, attr: Attribute) -> Self {
+        Self { kind, attr }
+    }
+
+    pub fn kind(&self) -> &ItemKind {
+        &self.kind
+    }
+
+    pub fn attr(&self) -> &Attribute {
+        &self.attr
+    }
+}
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum Item {
+pub enum ItemKind {
     Fun(Function),
 }
 
@@ -13,6 +44,7 @@ pub struct Function {
     pub sig: FunSig,
     pub body: Block,
     pub closure: Environment,
+    attr: Attribute,
 }
 
 impl PartialEq for Function {
@@ -24,6 +56,9 @@ impl PartialEq for Function {
 impl Function {
     pub fn param_len(&self) -> usize {
         self.sig.inputs.len()
+    }
+    pub fn attr(&self) -> &Attribute {
+        &self.attr
     }
 }
 
@@ -37,7 +72,7 @@ impl FunSig {
     pub fn method_call(ident: Ident, len: usize) -> Self {
         let mut inputs = vec![];
         for _ in 0..len {
-            inputs.push(Ident("".to_string()));
+            inputs.push(Ident("".into()));
         }
         Self { ident, inputs }
     }

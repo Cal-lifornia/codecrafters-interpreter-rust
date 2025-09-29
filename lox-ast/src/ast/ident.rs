@@ -1,14 +1,16 @@
 use std::fmt::Display;
 
-use crate::tokens::Token;
+use lox_shared::SStr;
+
+use crate::parser::token::{Token, TokenKind};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct Ident(pub String);
+pub struct Ident(pub SStr);
 
 impl Ident {
     pub fn from_token(token: &Token) -> Option<Self> {
-        if let Token::Identifier(ident) = token {
-            Some(Self(ident.to_string()))
+        if let TokenKind::Identifier(ident) = token.kind() {
+            Some(Self(ident.clone()))
         } else {
             None
         }

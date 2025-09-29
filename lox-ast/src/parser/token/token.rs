@@ -1,4 +1,59 @@
-use crate::tokens::ReservedWord;
+use std::fmt::Display;
+
+use lox_shared::SStr;
+
+use crate::{parser::token::ReservedWord, span::Span};
+
+#[derive(Debug, Clone)]
+pub struct Token {
+    kind: TokenKind,
+    span: Span,
+}
+
+impl Display for Token {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.kind)
+    }
+}
+
+impl PartialEq for Token {
+    fn eq(&self, other: &Self) -> bool {
+        self.kind == other.kind
+    }
+}
+
+impl PartialEq<TokenKind> for Token {
+    fn eq(&self, other: &TokenKind) -> bool {
+        self.kind() == other
+    }
+}
+
+impl Token {
+    pub fn new(kind: TokenKind, span: Span) -> Self {
+        Self { kind, span }
+    }
+
+    pub fn kind(&self) -> &TokenKind {
+        &self.kind
+    }
+    pub fn span(&self) -> &Span {
+        &self.span
+    }
+
+    pub fn eof() -> Self {
+        Self {
+            kind: TokenKind::EOF,
+            span: Span::empty(),
+        }
+    }
+
+    pub fn dummy() -> Self {
+        Self {
+            kind: TokenKind::Comma,
+            span: Span::empty(),
+        }
+    }
+}
 
 pub trait TokenDisplay {
     fn lexeme(&self) -> String;
@@ -7,7 +62,7 @@ pub trait TokenDisplay {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum Token {
+pub enum TokenKind {
     LeftParen,
     RightParen,
     LeftBrace,
@@ -27,18 +82,15 @@ pub enum Token {
     LessEqual,
     GreaterEqual,
     Slash,
-    StringLiteral(String),
-    Number(String, f64),
-    Identifier(String),
+    StringLiteral(SStr),
+    Number(SStr, f64),
+    Identifier(SStr),
     Reserved(ReservedWord),
     EOF,
 }
-impl Token {
-    pub fn dummy() -> Self {
-        Self::Comma
-    }
-    pub fn from_single_char(value: char) -> Option<Token> {
-        use Token::*;
+impl TokenKind {
+    pub fn from_single_char(value: char) -> Option<TokenKind> {
+        use TokenKind::*;
         let out = match value {
             '(' => LeftParen,
             ')' => RightParen,
@@ -61,12 +113,12 @@ impl Token {
     }
 
     pub fn check_double_token(token: &Self, ch: char) -> bool {
-        if let Some(other) = Token::from_single_char(ch) {
+        if let Some(other) = TokenKind::from_single_char(ch) {
             match (token, other) {
-                (Token::Slash, Token::Slash) => true,
-                (token, Token::Equal) => matches!(
+                (TokenKind::Slash, TokenKind::Slash) => true,
+                (token, TokenKind::Equal) => matches!(
                     token,
-                    Token::Equal | Token::Bang | Token::Less | Token::Greater
+                    TokenKind::Equal | TokenKind::Bang | TokenKind::Less | TokenKind::Greater
                 ),
                 _ => false,
             }
@@ -75,8 +127,8 @@ impl Token {
         }
     }
 
-    pub fn new_double_token(first: &Self, second: &Self) -> Option<Token> {
-        if second == &Token::Equal {
+    pub fn new_double_token(first: &Self, second: &Self) -> Option<TokenKind> {
+        if second == &TokenKind::Equal {
             match first {
                 Self::Equal => Some(Self::EqualEqual),
                 Self::Bang => Some(Self::BangEqual),
@@ -92,13 +144,13 @@ impl Token {
     pub fn can_start_expr(&self) -> bool {
         matches!(
             self,
-            Token::Minus
-                | Token::Plus
-                | Token::Bang
-                | Token::StringLiteral(_)
-                | Token::Number(_, _)
-                | Token::Identifier(_)
-                | Token::Reserved(
+            TokenKind::Minus
+                | TokenKind::Plus
+                | TokenKind::Bang
+                | TokenKind::StringLiteral(_)
+                | TokenKind::Number(_, _)
+                | TokenKind::Identifier(_)
+                | TokenKind::Reserved(
                     ReservedWord::Else
                         | ReservedWord::For
                         | ReservedWord::If
@@ -112,9 +164,9 @@ impl Token {
     }
 }
 
-impl TokenDisplay for Token {
+impl TokenDisplay for TokenKind {
     fn lexeme(&self) -> String {
-        use Token::*;
+        use TokenKind::*;
         let out = match self {
             LeftParen => "(",
             RightParen => ")",
@@ -145,7 +197,7 @@ impl TokenDisplay for Token {
     }
 
     fn literal(&self) -> String {
-        use Token::*;
+        use TokenKind::*;
         match self {
             StringLiteral(val) => val.to_string(),
             Number(_, val) => format!("{val:?}"),
@@ -154,7 +206,7 @@ impl TokenDisplay for Token {
     }
 
     fn type_str(&self) -> &str {
-        use Token::*;
+        use TokenKind::*;
         match self {
             LeftParen => "LEFT_PAREN",
             RightParen => "RIGHT_PAREN",
@@ -184,7 +236,7 @@ impl TokenDisplay for Token {
     }
 }
 
-impl std::fmt::Display for Token {
+impl std::fmt::Display for TokenKind {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,

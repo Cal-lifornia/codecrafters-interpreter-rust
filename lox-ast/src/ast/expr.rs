@@ -1,9 +1,47 @@
 use std::fmt::Display;
 
-use crate::ast::ident::Ident;
+use crate::ast::{Attribute, ItemKind, ident::Ident};
+
+#[derive(Debug, Clone)]
+pub struct Expr {
+    pub kind: ExprKind,
+    pub attr: Attribute,
+}
+
+impl Display for Expr {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.kind)
+    }
+}
+
+impl Expr {
+    pub fn new(kind: ExprKind, attr: Attribute) -> Expr {
+        Self { kind, attr }
+    }
+
+    pub fn kind(&self) -> &ExprKind {
+        &self.kind
+    }
+
+    pub fn attr(&self) -> &Attribute {
+        &self.attr
+    }
+}
+
+impl PartialEq for Expr {
+    fn eq(&self, other: &Self) -> bool {
+        self.kind == other.kind
+    }
+}
+
+impl PartialEq<ExprKind> for Expr {
+    fn eq(&self, other: &ExprKind) -> bool {
+        self.kind() == other
+    }
+}
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum Expr {
+pub enum ExprKind {
     Literal(Literal),
     Group(Box<Group>),
     Unary(UnaryOp, Box<Expr>),
@@ -20,7 +58,7 @@ pub enum Expr {
 #[derive(Debug, Clone, PartialEq)]
 pub struct Group(pub Expr);
 
-impl Display for Expr {
+impl Display for ExprKind {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Literal(literal) => write!(f, "{literal}",),

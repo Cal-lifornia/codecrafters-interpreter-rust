@@ -1,9 +1,8 @@
 use std::fmt::Display;
 
-use crate::{
-    error::InterpreterError,
-    tokens::{tokenize::parse_tokens, Token},
-};
+use lox_shared::error::LoxError;
+
+use crate::parser::token::{Token, TokenKind, parse_tokens};
 
 #[derive(Debug, Clone)]
 pub struct Lexer {
@@ -11,11 +10,11 @@ pub struct Lexer {
 }
 
 impl Lexer {
-    pub fn new(file: &str) -> Result<Self, InterpreterError> {
+    pub fn new(file: &str) -> Result<Self, LoxError> {
         let file_contents = std::fs::read_to_string(file)
-            .map_err(|err| InterpreterError::Syntax(err.to_string()))?;
+            .map_err(|err| LoxError::Syntax(err.to_string().into()))?;
 
-        let (tokens, errs) = parse_tokens(&file_contents);
+        let (tokens, errs) = parse_tokens(&file_contents, file);
         if !errs.is_empty() {
             return Err(errs[0].clone());
         }
@@ -26,20 +25,20 @@ impl Lexer {
         if !self.tokens.is_empty() {
             self.tokens.remove(0)
         } else {
-            Token::EOF
+            Token::eof()
         }
     }
     pub fn peek_next(&self) -> Token {
-        self.tokens.first().cloned().unwrap_or(Token::EOF)
+        self.tokens.first().cloned().unwrap_or(Token::eof())
     }
     pub fn tokens(&self) -> Vec<Token> {
         self.tokens.clone()
     }
     pub fn peek_last(&self) -> Token {
-        self.tokens.last().cloned().unwrap_or(Token::EOF)
+        self.tokens.last().cloned().unwrap_or(Token::eof())
     }
     pub fn pop_last(&mut self) -> Token {
-        self.tokens.pop().unwrap_or(Token::EOF)
+        self.tokens.pop().unwrap_or(Token::eof())
     }
 
     // pub fn split_blocks(&mut self) -> Vec<Self> {
@@ -48,7 +47,7 @@ impl Lexer {
 
     pub fn split_at_semicolon(&self) -> Vec<Self> {
         self.tokens
-            .rsplit(|token| token == &Token::Semicolon)
+            .rsplit(|token| token.kind() == &TokenKind::Semicolon)
             .map(|tokens| Self {
                 tokens: tokens.to_vec(),
             })
@@ -62,7 +61,7 @@ impl Display for Lexer {
         self.tokens
             .iter()
             .rev()
-            .for_each(|token| out.push_str(format!("{token}\n").as_str()));
+            .for_each(|token| out.push_str(format!("{}\n", token.kind()).as_str()));
         write!(f, "{out}")
     }
 }

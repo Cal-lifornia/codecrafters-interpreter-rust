@@ -58,12 +58,17 @@ impl Interpreter {
         res
     }
 
-    pub fn find_method(&self, ident: &Ident) -> Option<LoxType> {
-        let mut res = self.env.find_method(ident);
-        if res.is_none() {
-            res = self.globals.get(ident).cloned()
+    pub fn update(&mut self, ident: &Ident, val: LoxType) -> Result<(), InterpreterError> {
+        if let Err(err) = self.env.update(ident, val.clone()) {
+            if let Some(global) = self.globals.get_mut(ident) {
+                *global = val;
+                Ok(())
+            } else {
+                Err(err)
+            }
+        } else {
+            Ok(())
         }
-        res
     }
 }
 pub type EvaluateResult = Result<Option<LoxType>, InterpreterError>;

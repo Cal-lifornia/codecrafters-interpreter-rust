@@ -1,6 +1,6 @@
 use crate::{
     ast::{
-        expr::{BinOp, Expr, Literal, LogicOp, UnaryOp},
+        expr::{BinOp, ExprKind, Literal, LogicOp, UnaryOp},
         item::FunSig,
     },
     error::InterpreterError,
@@ -8,17 +8,17 @@ use crate::{
 };
 
 impl Interpreter {
-    pub fn evaluate_expr(&mut self, expr: &Expr) -> Result<Option<LoxType>, InterpreterError> {
+    pub fn evaluate_expr(&mut self, expr: &ExprKind) -> Result<Option<LoxType>, InterpreterError> {
         match expr {
-            Expr::Literal(literal) => match literal {
+            ExprKind::Literal(literal) => match literal {
                 Literal::Number(num) => Ok(Some(LoxType::Number(*num))),
                 Literal::String(val) => Ok(Some(LoxType::String(val.to_string()))),
                 Literal::True => Ok(Some(LoxType::Boolean(true))),
                 Literal::False => Ok(Some(LoxType::Boolean(false))),
                 Literal::Nil => Ok(Some(LoxType::Nil)),
             },
-            Expr::Group(group) => self.evaluate_expr(&group.0),
-            Expr::Unary(unary_op, expr) => match unary_op {
+            ExprKind::Group(group) => self.evaluate_expr(&group.0),
+            ExprKind::Unary(unary_op, expr) => match unary_op {
                 UnaryOp::Bang => match self.evaluate_expr(expr)? {
                     Some(lox) => Ok(Some(!lox)),
                     None => Err(InterpreterError::Runtime(
@@ -32,7 +32,7 @@ impl Interpreter {
                     )),
                 },
             },
-            Expr::Arithmetic(op, left, right) => {
+            ExprKind::Arithmetic(op, left, right) => {
                 if let (Some(left_val), Some(right_val)) =
                     (self.evaluate_expr(left)?, self.evaluate_expr(right)?)
                 {
@@ -67,7 +67,7 @@ impl Interpreter {
                     ))
                 }
             }
-            Expr::Conditional(op, left, right) => match op {
+            ExprKind::Conditional(op, left, right) => match op {
                 LogicOp::Or => {
                     let Some(left_val) = self.evaluate_expr(left)? else {
                         return Err(InterpreterError::Runtime(
@@ -108,13 +108,13 @@ impl Interpreter {
                     Ok(Some(LoxType::Boolean(false)))
                 }
             },
-            Expr::Variable(ident) => match self.find(ident) {
+            ExprKind::Variable(ident) => match self.find(ident) {
                 Some(val) => Ok(Some(val)),
                 None => Err(InterpreterError::Runtime(format!(
                     "Undefined variable '{ident}'"
                 ))),
             },
-            Expr::InitVar(ident, expr) => {
+            ExprKind::InitVar(ident, expr) => {
                 if let Some(value) = self.evaluate_expr(expr)? {
                     self.insert_var(ident.clone(), value.clone());
                     Ok(Some(value))
@@ -124,7 +124,7 @@ impl Interpreter {
                     )))
                 }
             }
-            Expr::UpdateVar(ident, expr) => {
+            ExprKind::UpdateVar(ident, expr) => {
                 if let Some(value) = self.evaluate_expr(expr)? {
                     self.env.update(ident, value.clone())?;
                     Ok(Some(value))
@@ -134,20 +134,19 @@ impl Interpreter {
                     )))
                 }
             }
-            Expr::Print(expr) => {
+            ExprKind::Print(expr) => {
                 match self.evaluate_expr(expr)? {
                     Some(val) => println!("{val}"),
                     None => println!(),
                 }
                 Ok(None)
             }
-            Expr::MethodCall(ident, args) => {
+            ExprKind::MethodCall(ident, args) => {
                 let sig = FunSig::method_call(ident.clone(), args.len());
                 let mut vals = vec![];
+                let res = self.find(ident);
 
-                if let LoxType::Method(fun) =
-                    self.find_method(ident).unwrap_or(LoxType::Nil).into_inner()
-                {
+                if let LoxType::Method(fun) = res.unwrap_or(LoxType::Nil).into_inner() {
                     if fun.param_len() != args.len() {
                         return Err(InterpreterError::Runtime(format!(
                             "Fun {} expects {} args, got {}",
@@ -174,7 +173,7 @@ impl Interpreter {
                     )))
                 }
             }
-            Expr::Return(opt) => match opt {
+            ExprKind::Return(opt) => match opt {
                 Some(expr) => Ok(self
                     .evaluate_expr(expr)?
                     .map(|val| LoxType::Return(Box::new(val)))),

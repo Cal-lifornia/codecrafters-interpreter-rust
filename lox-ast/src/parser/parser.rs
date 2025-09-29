@@ -1,12 +1,6 @@
-pub mod expr;
-
-mod item;
-mod stmt;
-pub mod token_stream;
-
 use crate::{
-    ast::parse::token_stream::{TokenCursor, TokenStream, TokenTree, TokenTreeCursor},
-    tokens::Token,
+    ast::NodeId,
+    parser::token::{Token, TokenCursor, TokenStream, TokenTree, TokenTreeCursor},
 };
 
 pub struct Parser {
@@ -14,6 +8,7 @@ pub struct Parser {
     pub prev_token: Token,
     cursor: TokenCursor,
     bumps: usize,
+    current_id: u32,
 }
 
 impl Parser {
@@ -26,6 +21,7 @@ impl Parser {
                 stack: vec![],
             },
             bumps: 0,
+            current_id: 0,
         };
         parser.bump();
         parser.bumps = 0;
@@ -37,6 +33,12 @@ impl Parser {
 
         self.prev_token = std::mem::replace(&mut self.current_token, next);
         self.bumps += 1;
+    }
+
+    pub fn new_node_id(&mut self) -> NodeId {
+        let out = NodeId::new(self.current_id);
+        self.current_id += 1;
+        out
     }
 
     pub fn look_ahead(&self, idx: usize) -> Token {

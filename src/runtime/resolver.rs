@@ -2,7 +2,7 @@ use hashbrown::HashMap;
 
 use crate::{
     ast::{
-        expr::Expr,
+        expr::ExprKind,
         ident::Ident,
         item::Item,
         stmt::{Block, ControlFlowStmt, Stmt},
@@ -30,18 +30,16 @@ impl Resolver {
 
     pub fn resolve_local(&mut self, ident: &Ident) -> Result<(), InterpreterError> {
         for (idx, scope) in self.scopes.iter().rev().enumerate() {
-            if scope.contains_key(ident) {
-                match scope.get(ident) {
-                    Some(false) => {
-                        return Err(InterpreterError::Runtime("Found empty var".to_string()))
-                    }
-                    Some(true) => {
-                        self.locals.insert(ident.clone(), idx);
-                        break;
-                    }
-                    None => {
-                        continue;
-                    }
+            match scope.get(ident) {
+                Some(false) => {
+                    return Err(InterpreterError::Runtime("Found empty var".to_string()))
+                }
+                Some(true) => {
+                    self.locals.insert(ident.clone(), idx);
+                    break;
+                }
+                None => {
+                    continue;
                 }
             }
         }
@@ -53,6 +51,7 @@ impl Resolver {
             last.insert(ident, false);
         }
     }
+
     pub fn define(&mut self, ident: Ident) {
         if let Some(last) = self.scopes.last_mut() {
             last.insert(ident, true);
@@ -105,7 +104,8 @@ impl Resolver {
     pub fn resolve_item(&mut self, item: &Item) -> Result<(), InterpreterError> {
         match item {
             Item::Fun(function) => {
-                // self.resolve_local(&function.sig.ident)?;
+                self.declare(function.sig.ident.clone());
+                self.define(function.sig.ident.clone());
                 self.enter_scope();
                 for input in function.sig.inputs.clone() {
                     self.declare(input.clone());
@@ -127,37 +127,39 @@ impl Resolver {
         Ok(())
     }
 
-    pub fn resolve_expr(&mut self, expr: &Expr) -> Result<(), InterpreterError> {
+    pub fn resolve_expr(&mut self, expr: &ExprKind) -> Result<(), InterpreterError> {
         match expr {
-            Expr::Literal(_) => Ok(()),
-            Expr::Group(group) => self.resolve_expr(&group.0),
-            Expr::Unary(_, expr) => self.resolve_expr(expr),
-            Expr::Arithmetic(_, left, right) => {
+            ExprKind::Literal(_) => Ok(()),
+            ExprKind::Group(group) => self.resolve_expr(&group.0),
+            ExprKind::Unary(_, expr) => self.resolve_expr(expr),
+            ExprKind::Arithmetic(_, left, right) => {
                 self.resolve_expr(left)?;
                 self.resolve_expr(right)
             }
-            Expr::Conditional(_, left, right) => {
+            ExprKind::Conditional(_, left, right) => {
                 self.resolve_expr(left)?;
                 self.resolve_expr(right)
             }
-            Expr::Variable(ident) => self.resolve_local(ident),
-            Expr::InitVar(ident, expr) => {
+            ExprKind::Variable(ident) => self.resolve_local(ident),
+            ExprKind::InitVar(ident, expr) => {
                 self.declare(ident.clone());
                 self.define(ident.clone());
                 self.resolve_expr(expr)?;
                 self.resolve_local(ident)
             }
-            Expr::UpdateVar(_, expr) => self.resolve_expr(expr),
-            Expr::Print(expr) => self.resolve_expr(expr),
-            Expr::MethodCall(_, exprs) => {
+            ExprKind::UpdateVar(_, expr) => self.resolve_expr(expr),
+            ExprKind::Print(expr) => self.resolve_expr(expr),
+            ExprKind::MethodCall(ident, exprs) => {
+                self.resolve_local(ident)?;
                 self.enter_scope();
                 for expr in exprs {
                     self.resolve_expr(expr)?;
                 }
+                self.exit_scope();
                 Ok(())
             }
-            Expr::Return(Some(val)) => self.resolve_expr(val),
-            Expr::Return(None) => Ok(()),
+            ExprKind::Return(Some(val)) => self.resolve_expr(val),
+            ExprKind::Return(None) => Ok(()),
         }
     }
 }

@@ -1,8 +1,10 @@
 use std::rc::Rc;
 
+use lox_shared::error::LoxError;
+
 use crate::{
-    error::InterpreterError,
-    tokens::{Lexer, Token},
+    parser::token::{Lexer, Token, TokenKind},
+    span::Span,
 };
 
 #[derive(Debug, Clone)]
@@ -17,7 +19,7 @@ impl TokenStream {
         let mut next = lexer.next_token();
         let mut stream = vec![];
         loop {
-            if next != Token::EOF {
+            if next.kind() != &TokenKind::EOF {
                 stream.push(TokenTree::Token(next));
                 next = lexer.next_token();
             } else {
@@ -44,7 +46,7 @@ pub enum TokenTree {
 
 impl TokenTree {
     pub fn eof_token() -> Self {
-        Self::Token(Token::EOF)
+        Self::Token(Token::eof())
     }
 }
 
@@ -56,24 +58,26 @@ pub enum Delimiter {
 
 impl Delimiter {
     pub fn as_open_token(&self) -> Token {
-        match self {
-            Self::Parenthesis => Token::LeftParen,
-            Self::Brace => Token::LeftBrace,
-        }
+        let kind = match self {
+            Self::Parenthesis => TokenKind::LeftParen,
+            Self::Brace => TokenKind::LeftBrace,
+        };
+        Token::new(kind, Span::empty())
     }
 
     pub fn as_closed_token(&self) -> Token {
-        match self {
-            Self::Parenthesis => Token::RightParen,
-            Self::Brace => Token::RightBrace,
-        }
+        let kind = match self {
+            Self::Parenthesis => TokenKind::RightParen,
+            Self::Brace => TokenKind::RightBrace,
+        };
+        Token::new(kind, Span::empty())
     }
 }
 
-pub fn generate_token_stream(lexer: &mut Lexer) -> Result<TokenStream, InterpreterError> {
+pub fn generate_token_stream(lexer: &mut Lexer) -> Result<TokenStream, LoxError> {
     let mut stream = vec![];
     loop {
-        if lexer.peek_next() == Token::EOF {
+        if lexer.peek_next().kind() == &TokenKind::EOF {
             break;
         } else {
             stream.push(create_token_tree(lexer)?);
@@ -82,18 +86,18 @@ pub fn generate_token_stream(lexer: &mut Lexer) -> Result<TokenStream, Interpret
     Ok(TokenStream::new(stream))
 }
 
-fn create_token_tree(lexer: &mut Lexer) -> Result<TokenTree, InterpreterError> {
+fn create_token_tree(lexer: &mut Lexer) -> Result<TokenTree, LoxError> {
     let first = lexer.next_token();
-    match first {
-        Token::LeftParen => {
+    match first.kind() {
+        TokenKind::LeftParen => {
             let mut stream = vec![];
             loop {
                 let next = lexer.peek_next();
-                if next == Token::RightParen {
+                if next.kind() == &TokenKind::RightParen {
                     lexer.next_token();
                     break;
-                } else if next == Token::EOF {
-                    return Err(InterpreterError::Syntax("missing ')'".to_string()));
+                } else if next.kind() == &TokenKind::EOF {
+                    return Err(LoxError::Syntax("missing ')'".into()));
                 } else {
                     stream.push(create_token_tree(lexer)?);
                 }
@@ -103,15 +107,15 @@ fn create_token_tree(lexer: &mut Lexer) -> Result<TokenTree, InterpreterError> {
                 TokenStream::new(stream),
             ))
         }
-        Token::LeftBrace => {
+        TokenKind::LeftBrace => {
             let mut stream = vec![];
             loop {
                 let next = lexer.peek_next();
-                if next == Token::RightBrace {
+                if next.kind() == &TokenKind::RightBrace {
                     lexer.next_token();
                     break;
-                } else if next == Token::EOF {
-                    return Err(InterpreterError::Syntax("missing '}'".to_string()));
+                } else if next.kind() == &TokenKind::EOF {
+                    return Err(LoxError::Syntax("missing '}'".into()));
                 } else {
                     stream.push(create_token_tree(lexer)?);
                 }
@@ -157,7 +161,7 @@ impl TokenCursor {
             self.curr.bump(); // Delimiter is at the front so move over it
             delimiter.as_closed_token()
         } else {
-            Token::EOF
+            Token::eof()
         }
     }
 }

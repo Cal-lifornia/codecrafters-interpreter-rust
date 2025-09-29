@@ -21,7 +21,10 @@ pub fn run_program(filename: &str) -> Result<(), InterpreterError> {
     let mut interpreter = Interpreter::default();
 
     for stmt in ast.clone() {
-        if matches!(stmt, crate::ast::stmt::Stmt::Item(_)) {
+        if matches!(
+            stmt,
+            crate::ast::stmt::Stmt::Item(_) | crate::ast::stmt::Stmt::Block(_)
+        ) {
             interpreter.resolver.resolve_stmt(&stmt)?;
         }
     }
