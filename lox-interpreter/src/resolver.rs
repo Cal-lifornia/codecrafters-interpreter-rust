@@ -1,23 +1,17 @@
 use hashbrown::HashMap;
-
-use crate::{
-    ast::{
-        expr::ExprKind,
-        ident::Ident,
-        item::Item,
-        stmt::{Block, ControlFlowStmt, Stmt},
-    },
-    error::InterpreterError,
+use lox_ast::ast::{
+    Block, ControlFlowStmt, Expr, ExprKind, Ident, Item, ItemKind, NodeId, Stmt, StmtKind,
 };
+use lox_shared::error::LoxError;
 
 #[derive(Default)]
 pub struct Resolver {
     pub scopes: Vec<HashMap<Ident, bool>>,
-    locals: HashMap<Ident, usize>,
+    locals: HashMap<NodeId, usize>,
 }
 
 impl Resolver {
-    pub fn take_locals(&mut self) -> HashMap<Ident, usize> {
+    pub fn take_locals(&mut self) -> HashMap<NodeId, usize> {
         std::mem::take(&mut self.locals)
     }
     pub fn enter_scope(&mut self) {
@@ -28,14 +22,14 @@ impl Resolver {
         self.scopes.pop();
     }
 
-    pub fn resolve_local(&mut self, ident: &Ident) -> Result<(), InterpreterError> {
+    pub fn resolve_local(&mut self, ident: &Ident, id: NodeId) -> Result<(), LoxError> {
         for (idx, scope) in self.scopes.iter().rev().enumerate() {
             match scope.get(ident) {
                 Some(false) => {
-                    return Err(InterpreterError::Runtime("Found empty var".to_string()))
+                    return Err(LoxError::Runtime("Found empty var".into()));
                 }
                 Some(true) => {
-                    self.locals.insert(ident.clone(), idx);
+                    self.locals.insert(id, idx);
                     break;
                 }
                 None => {
@@ -58,12 +52,12 @@ impl Resolver {
         }
     }
 
-    pub fn resolve_stmt(&mut self, stmt: &Stmt) -> Result<(), InterpreterError> {
-        match stmt {
-            Stmt::Item(item) => self.resolve_item(item),
-            Stmt::Expr(expr) => self.resolve_expr(expr),
-            Stmt::Block(block) => self.resolve_block(block),
-            Stmt::If(group, if_stmt, else_stmt) => {
+    pub fn resolve_stmt(&mut self, stmt: &Stmt) -> Result<(), LoxError> {
+        match stmt.kind() {
+            StmtKind::Item(item) => self.resolve_item(item),
+            StmtKind::Expr(expr) => self.resolve_expr(expr),
+            StmtKind::Block(block) => self.resolve_block(block),
+            StmtKind::If(group, if_stmt, else_stmt) => {
                 self.resolve_expr(&group.0)?;
                 self.resolve_ctrl_flow_stmt(if_stmt)?;
                 if let Some(else_stmt) = else_stmt {
@@ -71,11 +65,11 @@ impl Resolver {
                 }
                 Ok(())
             }
-            Stmt::WhileLoop(group, control_flow_stmt) => {
+            StmtKind::WhileLoop(group, control_flow_stmt) => {
                 self.resolve_expr(&group.0)?;
                 self.resolve_ctrl_flow_stmt(control_flow_stmt)
             }
-            Stmt::ForLoop(for_loop_args, control_flow_stmt) => {
+            StmtKind::ForLoop(for_loop_args, control_flow_stmt) => {
                 self.enter_scope();
                 if let Some(init) = &for_loop_args.init {
                     self.resolve_stmt(init)?;
@@ -91,19 +85,16 @@ impl Resolver {
         }
     }
 
-    pub fn resolve_ctrl_flow_stmt(
-        &mut self,
-        stmt: &ControlFlowStmt,
-    ) -> Result<(), InterpreterError> {
+    pub fn resolve_ctrl_flow_stmt(&mut self, stmt: &ControlFlowStmt) -> Result<(), LoxError> {
         match stmt {
             ControlFlowStmt::Stmt(stmt) => self.resolve_stmt(stmt),
             ControlFlowStmt::Block(block) => self.resolve_block(block),
         }
     }
 
-    pub fn resolve_item(&mut self, item: &Item) -> Result<(), InterpreterError> {
-        match item {
-            Item::Fun(function) => {
+    pub fn resolve_item(&mut self, item: &Item) -> Result<(), LoxError> {
+        match item.kind() {
+            ItemKind::Fun(function) => {
                 self.declare(function.sig.ident.clone());
                 self.define(function.sig.ident.clone());
                 self.enter_scope();
@@ -118,7 +109,7 @@ impl Resolver {
         }
     }
 
-    pub fn resolve_block(&mut self, block: &Block) -> Result<(), InterpreterError> {
+    pub fn resolve_block(&mut self, block: &Block) -> Result<(), LoxError> {
         self.enter_scope();
         for stmt in block.stmts.iter() {
             self.resolve_stmt(stmt)?;
@@ -127,8 +118,8 @@ impl Resolver {
         Ok(())
     }
 
-    pub fn resolve_expr(&mut self, expr: &ExprKind) -> Result<(), InterpreterError> {
-        match expr {
+    pub fn resolve_expr(&mut self, expr: &Expr) -> Result<(), LoxError> {
+        match expr.kind() {
             ExprKind::Literal(_) => Ok(()),
             ExprKind::Group(group) => self.resolve_expr(&group.0),
             ExprKind::Unary(_, expr) => self.resolve_expr(expr),
@@ -140,17 +131,17 @@ impl Resolver {
                 self.resolve_expr(left)?;
                 self.resolve_expr(right)
             }
-            ExprKind::Variable(ident) => self.resolve_local(ident),
+            ExprKind::Variable(ident) => self.resolve_local(ident, expr.attr().id().clone()),
             ExprKind::InitVar(ident, expr) => {
                 self.declare(ident.clone());
                 self.define(ident.clone());
                 self.resolve_expr(expr)?;
-                self.resolve_local(ident)
+                self.resolve_local(ident, expr.attr.id().clone())
             }
             ExprKind::UpdateVar(_, expr) => self.resolve_expr(expr),
             ExprKind::Print(expr) => self.resolve_expr(expr),
             ExprKind::MethodCall(ident, exprs) => {
-                self.resolve_local(ident)?;
+                self.resolve_local(ident, expr.attr().id().clone())?;
                 self.enter_scope();
                 for expr in exprs {
                     self.resolve_expr(expr)?;

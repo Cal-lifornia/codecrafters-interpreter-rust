@@ -18,9 +18,13 @@ impl Attribute {
     pub fn span(&self) -> &Span {
         &self.span
     }
+
+    pub fn as_display(&self) -> impl std::fmt::Display {
+        format!("{}: {}", self.id.0, self.span)
+    }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct NodeId(u32);
 
 impl NodeId {

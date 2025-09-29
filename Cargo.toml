@@ -6,10 +6,15 @@ edition = "2021"
 rust-version = "1.80"
 
 [dependencies]
+lox-ast = { path = "./lox-ast", version = "0.1.0" }
+lox-interpreter = { path = "./lox-interpreter", version = "0.1.0" }
+lox-shared = { path = "./lox-shared", version = "0.1.0" }
+
 anyhow = { workspace = true }
 thiserror = { workspace = true }
 hashbrown = { workspace = true }
 bytes = { workspace = true }
+
 
 [workspace]
 resolver = "2"

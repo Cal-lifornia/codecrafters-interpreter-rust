@@ -46,10 +46,6 @@ impl Parser {
 
         let body = self.parse_block()?;
 
-        Ok(Function {
-            sig,
-            body,
-            closure: Environment::new(),
-        })
+        Ok(Function { sig, body })
     }
 }

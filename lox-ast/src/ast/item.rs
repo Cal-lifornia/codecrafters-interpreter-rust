@@ -1,5 +1,3 @@
-use lox_interpreter::Environment;
-
 use crate::ast::{Attribute, ident::Ident, stmt::Block};
 
 #[derive(Debug, Clone)]
@@ -43,8 +41,6 @@ pub enum ItemKind {
 pub struct Function {
     pub sig: FunSig,
     pub body: Block,
-    pub closure: Environment,
-    attr: Attribute,
 }
 
 impl PartialEq for Function {
@@ -56,9 +52,6 @@ impl PartialEq for Function {
 impl Function {
     pub fn param_len(&self) -> usize {
         self.sig.inputs.len()
-    }
-    pub fn attr(&self) -> &Attribute {
-        &self.attr
     }
 }
 

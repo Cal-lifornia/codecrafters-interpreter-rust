@@ -1,22 +1,18 @@
-use crate::{
-    ast::stmt::{Block, ControlFlowStmt, Stmt},
-    error::InterpreterError,
-    runtime::{
-        interpreter::{EvaluateResult, Interpreter},
-        loxtype::LoxType,
-    },
-};
+use lox_ast::ast::{Block, ControlFlowStmt, Stmt, StmtKind};
+use lox_shared::error::LoxError;
+
+use crate::{Interpreter, Value, eval::EvalResult};
 
 impl Interpreter {
-    pub fn evaluate_stmt(&mut self, stmt: &Stmt) -> EvaluateResult {
-        match stmt {
-            Stmt::Item(item) => {
+    pub fn evaluate_stmt(&mut self, stmt: &Stmt) -> EvalResult {
+        match stmt.kind() {
+            StmtKind::Item(item) => {
                 self.evaluate_item(item)?;
                 Ok(None)
             }
-            Stmt::Expr(expr) => self.evaluate_expr(expr),
-            Stmt::Block(block) => self.evaluate_block(block),
-            Stmt::If(cond, if_kind, if_else) => {
+            StmtKind::Expr(expr) => self.evaluate_expr(expr),
+            StmtKind::Block(block) => self.evaluate_block(block),
+            StmtKind::If(cond, if_kind, if_else) => {
                 if let Some(cond_eval) = self.evaluate_expr(&cond.0)? {
                     // println!("cond_eval: {cond_eval}");
                     // println!("truthy cond_eval: {}", cond_eval.is_truthy());
@@ -29,39 +25,33 @@ impl Interpreter {
                         Ok(None)
                     }
                 } else {
-                    Err(InterpreterError::Runtime(
-                        "can't evaluate empty statement".to_string(),
-                    ))
+                    Err(LoxError::Runtime("can't evaluate empty statement".into()))
                 }
             }
-            Stmt::WhileLoop(cond, kind) => {
-                let mut res: Option<LoxType> = None;
+            StmtKind::WhileLoop(cond, kind) => {
+                let mut res: Option<Value> = None;
                 while self
                     .evaluate_expr(&cond.0)?
-                    .unwrap_or(LoxType::Nil)
+                    .unwrap_or(Value::Nil)
                     .is_truthy()
                 {
                     res = self.evaluate_control_flow_stmt(kind)?;
-                    if matches!(res, Some(LoxType::Return(_))) {
+                    if matches!(res, Some(Value::Return(_))) {
                         break;
                     }
                 }
                 Ok(res)
             }
-            Stmt::ForLoop(args, kind) => {
-                self.env.enter_scope();
-                let mut res: Option<LoxType> = None;
+            StmtKind::ForLoop(args, kind) => {
+                self.enter_scope();
+                let mut res: Option<Value> = None;
                 if let Some(init) = &args.init {
                     self.evaluate_stmt(init)?;
                 }
-                if let Stmt::Expr(cond) = &args.cond {
-                    while self
-                        .evaluate_expr(cond)?
-                        .unwrap_or(LoxType::Nil)
-                        .is_truthy()
-                    {
+                if let StmtKind::Expr(cond) = &args.cond.kind() {
+                    while self.evaluate_expr(cond)?.unwrap_or(Value::Nil).is_truthy() {
                         res = self.evaluate_control_flow_stmt(kind)?;
-                        if matches!(res, Some(LoxType::Return(_))) {
+                        if matches!(res, Some(Value::Return(_))) {
                             break;
                         }
                         if let Some(stmt) = &args.stmt {
@@ -69,25 +59,25 @@ impl Interpreter {
                         }
                     }
                 }
-                self.env.exit_scope();
+                self.exit_scope();
                 Ok(res)
             }
         }
     }
-    pub fn evaluate_block(&mut self, block: &Block) -> EvaluateResult {
-        self.env.enter_scope();
+    pub fn evaluate_block(&mut self, block: &Block) -> EvalResult {
+        self.enter_scope();
         for stmt in block.stmts.clone() {
             let result = self.evaluate_stmt(&stmt)?;
-            if matches!(result, Some(LoxType::Return(_))) {
-                self.env.exit_scope();
+            if matches!(result, Some(Value::Return(_))) {
+                self.exit_scope();
                 return Ok(result);
             }
         }
-        self.env.exit_scope();
-        Ok(Some(LoxType::Nil))
+        self.exit_scope();
+        Ok(Some(Value::Nil))
     }
 
-    pub fn evaluate_control_flow_stmt(&mut self, stmt: &ControlFlowStmt) -> EvaluateResult {
+    pub fn evaluate_control_flow_stmt(&mut self, stmt: &ControlFlowStmt) -> EvalResult {
         match stmt {
             ControlFlowStmt::Stmt(stmt) => self.evaluate_stmt(stmt),
             ControlFlowStmt::Block(block) => self.evaluate_block(block),

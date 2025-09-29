@@ -1,6 +1,6 @@
 use std::fmt::Display;
 
-use crate::ast::{Attribute, ItemKind, ident::Ident};
+use crate::ast::{Attribute, NodeId, ident::Ident};
 
 #[derive(Debug, Clone)]
 pub struct Expr {
@@ -25,6 +25,9 @@ impl Expr {
 
     pub fn attr(&self) -> &Attribute {
         &self.attr
+    }
+    pub fn id(&self) -> &NodeId {
+        self.attr.id()
     }
 }
 

@@ -53,10 +53,10 @@ impl Parser {
                     TokenTree::Delimited(delim, _) => return delim.as_open_token(),
                 },
                 None => {
-                    if let Some(last) = self.cursor.stack.last() {
-                        if let Some(TokenTree::Delimited(delim, _)) = last.curr() {
-                            return delim.as_closed_token();
-                        }
+                    if let Some(last) = self.cursor.stack.last()
+                        && let Some(TokenTree::Delimited(delim, _)) = last.curr()
+                    {
+                        return delim.as_closed_token();
                     }
                 }
             }

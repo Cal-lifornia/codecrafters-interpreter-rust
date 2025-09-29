@@ -2,14 +2,13 @@ use std::env;
 use std::fs;
 use std::process::exit;
 
-use codecrafters_interpreter::ast::parse::token_stream::TokenStream;
-use codecrafters_interpreter::ast::parse::Parser;
-use codecrafters_interpreter::error::InterpreterError;
-use codecrafters_interpreter::runtime::interpreter::Interpreter;
-use codecrafters_interpreter::runtime::program::run_program;
-use codecrafters_interpreter::tokens::parse_tokens;
-use codecrafters_interpreter::tokens::Lexer;
-use codecrafters_interpreter::tokens::Token;
+use lox_ast::parser::token::parse_tokens;
+use lox_ast::parser::token::Lexer;
+use lox_ast::parser::token::TokenKind;
+use lox_ast::parser::token::TokenStream;
+use lox_ast::parser::Parser;
+use lox_interpreter::Interpreter;
+use lox_shared::error::LoxError;
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -27,7 +26,7 @@ fn main() {
     }
 }
 
-fn run_interpreter(command: &str, filename: &str) -> Result<(), InterpreterError> {
+fn run_interpreter(command: &str, filename: &str) -> Result<(), LoxError> {
     match command {
         "tokenize" => {
             let file_contents = fs::read_to_string(filename).unwrap_or_else(|_| {
@@ -37,15 +36,15 @@ fn run_interpreter(command: &str, filename: &str) -> Result<(), InterpreterError
 
             if !file_contents.is_empty() {
                 let mut err_present = false;
-                let (tokens, errs) = parse_tokens(&file_contents);
+                let (tokens, errs) = parse_tokens(&file_contents, filename);
                 if !errs.is_empty() {
                     err_present = true;
                     errs.iter().for_each(|err| {
                         eprintln!("{err}");
                     })
                 }
-                tokens.iter().for_each(|token| println!("{token}"));
-                println!("{}", Token::EOF);
+                tokens.iter().for_each(|token| println!("{}", token.kind()));
+                println!("{}", TokenKind::EOF);
                 if err_present {
                     exit(65)
                 } else {
@@ -73,7 +72,8 @@ fn run_interpreter(command: &str, filename: &str) -> Result<(), InterpreterError
             Ok(())
         }
         "run" => {
-            if let Err(err) = run_program(filename) {
+            let mut interpreter = Interpreter::default();
+            if let Err(err) = interpreter.run(filename) {
                 eprintln!("{err}");
                 exit(err.exit_code())
             } else {
@@ -81,7 +81,7 @@ fn run_interpreter(command: &str, filename: &str) -> Result<(), InterpreterError
             }
         }
         _ => {
-            Err(InterpreterError::Runtime("unknown command".to_string()))
+            Err(LoxError::Runtime("unknown command".into()))
             // return;
         }
     }

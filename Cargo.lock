@@ -27,6 +27,9 @@ dependencies = [
  "anyhow",
  "bytes",
  "hashbrown",
+ "lox-ast",
+ "lox-interpreter",
+ "lox-shared",
  "thiserror",
 ]
 
@@ -58,7 +61,6 @@ name = "lox-ast"
 version = "0.1.0"
 dependencies = [
  "hashbrown",
- "lox-interpreter",
  "lox-shared",
 ]
 
@@ -68,6 +70,7 @@ version = "0.1.0"
 dependencies = [
  "bytes",
  "hashbrown",
+ "lox-ast",
  "lox-shared",
 ]
 
