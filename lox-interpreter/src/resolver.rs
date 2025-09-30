@@ -75,10 +75,10 @@ impl Resolver {
                     self.resolve_stmt(init)?;
                 }
                 self.resolve_stmt(&for_loop_args.cond)?;
+                self.resolve_ctrl_flow_stmt(control_flow_stmt)?;
                 if let Some(stmt) = &for_loop_args.stmt {
                     self.resolve_stmt(stmt)?;
                 }
-                self.resolve_ctrl_flow_stmt(control_flow_stmt)?;
                 self.exit_scope();
                 Ok(())
             }
@@ -132,21 +132,24 @@ impl Resolver {
                 self.resolve_expr(right)
             }
             ExprKind::Variable(ident) => self.resolve_local(ident, expr.attr().id().clone()),
-            ExprKind::InitVar(ident, expr) => {
+            ExprKind::InitVar(ident, sub_expr) => {
                 self.declare(ident.clone());
                 self.define(ident.clone());
-                self.resolve_expr(expr)?;
+                self.resolve_expr(sub_expr)?;
                 self.resolve_local(ident, expr.attr.id().clone())
             }
-            ExprKind::UpdateVar(_, expr) => self.resolve_expr(expr),
+            ExprKind::UpdateVar(ident, expr) => {
+                self.resolve_expr(expr)?;
+                self.resolve_local(ident, expr.attr().id().clone())
+            }
             ExprKind::Print(expr) => self.resolve_expr(expr),
             ExprKind::MethodCall(ident, exprs) => {
                 self.resolve_local(ident, expr.attr().id().clone())?;
-                self.enter_scope();
+                // self.enter_scope();
                 for expr in exprs {
                     self.resolve_expr(expr)?;
                 }
-                self.exit_scope();
+                // self.exit_scope();
                 Ok(())
             }
             ExprKind::Return(Some(val)) => self.resolve_expr(val),

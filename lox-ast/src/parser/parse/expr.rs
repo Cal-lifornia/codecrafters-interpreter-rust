@@ -13,7 +13,7 @@ impl Parser {
     pub fn parse_group(&mut self) -> Result<Group, LoxError> {
         assert_eq!(self.current_token, TokenKind::LeftParen);
         self.bump();
-        let group = Group(self.parse_expr(0, false)?);
+        let group = Group(self.parse_expr(0)?);
         let next = self.look_ahead(1);
         if next == TokenKind::RightParen {
             // Bump past right paren
@@ -33,7 +33,7 @@ impl Parser {
             if self.current_token == TokenKind::RightParen {
                 break;
             }
-            inputs.push(self.parse_expr(0, false)?);
+            inputs.push(self.parse_expr(0)?);
             self.bump();
             if self.current_token == TokenKind::Comma {
                 self.bump();
@@ -64,7 +64,7 @@ impl Parser {
         ))
     }
 
-    pub fn parse_expr(&mut self, min_bp: u8, var_init: bool) -> Result<Expr, LoxError> {
+    pub fn parse_expr(&mut self, min_bp: u8) -> Result<Expr, LoxError> {
         let current: Token = self.current_token.clone();
         let span = current.span().clone();
         let attr = Attribute::new(self.new_node_id(), span);
@@ -73,10 +73,7 @@ impl Parser {
             Expr::new(ExprKind::Literal(literal), attr)
         } else if let Some(op) = UnaryOp::from_token(&current) {
             self.bump();
-            Expr::new(
-                ExprKind::Unary(op, Box::new(self.parse_expr(9, var_init)?)),
-                attr,
-            )
+            Expr::new(ExprKind::Unary(op, Box::new(self.parse_expr(9)?)), attr)
         } else {
             match current.kind() {
                 TokenKind::LeftParen => {
@@ -91,10 +88,7 @@ impl Parser {
                                 self.bump();
                                 self.bump();
                                 Expr::new(
-                                    ExprKind::InitVar(
-                                        ident.clone(),
-                                        Box::new(self.parse_expr(0, true)?),
-                                    ),
+                                    ExprKind::InitVar(ident.clone(), Box::new(self.parse_expr(0)?)),
                                     attr,
                                 )
                             } else {
@@ -110,18 +104,15 @@ impl Parser {
                                 )
                             }
                         } else {
-                            return Err(LoxError::Syntax(
-                                format!("invalid token reserved: {}", self.current_token.clone())
-                                    .into(),
-                            ));
+                            return Err(LoxError::Syntax(format!(
+                                "invalid token reserved: {}",
+                                self.current_token.clone()
+                            )));
                         }
                     }
                     ReservedWord::Print => {
                         self.bump();
-                        Expr::new(
-                            ExprKind::Print(Box::new(self.parse_expr(0, var_init)?)),
-                            attr,
-                        )
+                        Expr::new(ExprKind::Print(Box::new(self.parse_expr(0)?)), attr)
                     }
                     ReservedWord::Return => {
                         let next = self.look_ahead(1);
@@ -129,10 +120,7 @@ impl Parser {
                             Expr::new(ExprKind::Return(None), attr)
                         } else {
                             self.bump();
-                            Expr::new(
-                                ExprKind::Return(Some(Box::new(self.parse_expr(0, var_init)?))),
-                                attr,
-                            )
+                            Expr::new(ExprKind::Return(Some(Box::new(self.parse_expr(0)?))), attr)
                         }
                     }
                     _ => todo!(),
@@ -144,10 +132,7 @@ impl Parser {
                         self.bump();
                         self.bump();
                         Expr::new(
-                            ExprKind::UpdateVar(
-                                ident.clone(),
-                                Box::new(self.parse_expr(0, var_init)?),
-                            ),
+                            ExprKind::UpdateVar(ident.clone(), Box::new(self.parse_expr(0)?)),
                             attr,
                         )
                     } else if next == TokenKind::LeftParen {
@@ -163,9 +148,10 @@ impl Parser {
                     }
                 }
                 _ => {
-                    return Err(LoxError::Syntax(
-                        format!("invalid token: {}", current.clone()).into(),
-                    ));
+                    return Err(LoxError::Syntax(format!(
+                        "invalid token: {}",
+                        current.clone()
+                    )));
                 }
             }
         };
@@ -199,7 +185,7 @@ impl Parser {
                 self.bump(); // Bump past op
                 self.bump(); // Bump to update current token for parse
 
-                let rhs = self.parse_expr(r_bp, var_init)?;
+                let rhs = self.parse_expr(r_bp)?;
                 lhs = op.create_expression(lhs, rhs, self.new_node_id());
             } else if matches!(
                 next.kind(),
@@ -207,7 +193,7 @@ impl Parser {
             ) {
                 break;
             } else {
-                return Err(LoxError::Runtime(format!("invalid token: {}", next).into()));
+                return Err(LoxError::Runtime(format!("invalid token: {}", next)));
             }
         }
         Ok(lhs)

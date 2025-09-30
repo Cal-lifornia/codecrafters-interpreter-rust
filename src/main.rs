@@ -58,13 +58,13 @@ fn run_interpreter(command: &str, filename: &str) -> Result<(), LoxError> {
         "parse" => {
             let mut lexer = Lexer::new(filename)?;
             let mut parser = Parser::new(TokenStream::direct_from_lexer(&mut lexer));
-            println!("{}", parser.parse_expr(0, false)?);
+            println!("{}", parser.parse_expr(0)?);
             Ok(())
         }
         "evaluate" => {
             let mut lexer = Lexer::new(filename)?;
             let mut parser = Parser::new(TokenStream::direct_from_lexer(&mut lexer));
-            let expr = parser.parse_expr(0, false)?;
+            let expr = parser.parse_expr(0)?;
             let mut interpreter = Interpreter::default();
             if let Some(eval) = interpreter.evaluate_expr(&expr)? {
                 println!("{eval}");

@@ -1,11 +1,9 @@
-use crate::SStr;
-
 #[derive(Debug, thiserror::Error, Clone)]
 pub enum LoxError {
     #[error("{0}")]
-    Runtime(SStr),
+    Runtime(String),
     #[error("{0}")]
-    Syntax(SStr),
+    Syntax(String),
 }
 
 impl LoxError {

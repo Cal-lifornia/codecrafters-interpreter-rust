@@ -1,6 +1,8 @@
+use std::fmt::{Display, Write};
+
 use hashbrown::HashMap;
 use lox_ast::{
-    ast::{Ident, NodeId, StmtKind},
+    ast::{FunSig, Ident, NodeId, StmtKind},
     parser::{
         Parser,
         token::{Lexer, TokenKind, generate_token_stream},
@@ -8,14 +10,18 @@ use lox_ast::{
 };
 use lox_shared::error::LoxError;
 
-use crate::{Resolver, Value, environment::Environment};
+use crate::{
+    Resolver, Value,
+    environment::Environment,
+    std_lib::{Clock, NativeFunction},
+};
 
 #[derive(Default)]
 pub struct Interpreter {
     env: Environment,
     globals: HashMap<Ident, Value>,
     locals: HashMap<NodeId, usize>,
-    // native_functions: HashMap<FunSig, Box<dyn NativeFunction>>,
+    native_functions: HashMap<FunSig, Box<dyn NativeFunction>>,
 }
 
 impl Interpreter {
@@ -32,11 +38,17 @@ impl Interpreter {
             }
         }
         let mut resolver = Resolver::default();
+        self.native_functions = HashMap::new();
+        self.native_functions.insert(
+            FunSig {
+                ident: Ident("clock".into()),
+                inputs: vec![],
+            },
+            Box::new(Clock {}),
+        );
 
         for stmt in ast.clone() {
-            if matches!(stmt.kind(), StmtKind::Item(_) | StmtKind::Block(_)) {
-                resolver.resolve_stmt(&stmt)?;
-            }
+            resolver.resolve_stmt(&stmt)?;
         }
         self.locals = resolver.take_locals();
         for stmt in ast.clone() {
@@ -57,10 +69,6 @@ impl Interpreter {
         self.env.clone()
     }
 
-    pub fn set_env(&mut self, env: Environment) {
-        self.env = env
-    }
-
     pub fn enter_closure(&mut self, closure: Environment) {
         self.env = closure;
         self.env.enter_scope();
@@ -79,12 +87,16 @@ impl Interpreter {
         }
     }
 
-    pub fn find(&mut self, ident: &Ident, id: &NodeId) -> Option<Value> {
+    pub fn find(&self, ident: &Ident, id: &NodeId) -> Option<Value> {
         if let Some(dist) = self.locals.get(id) {
             self.env.find(ident, *dist)
         } else {
             self.globals.get(ident).cloned()
         }
+    }
+
+    pub fn find_native_func(&self, fun_sig: &FunSig) -> Option<&dyn NativeFunction> {
+        self.native_functions.get(fun_sig).map(|fun| fun.as_ref())
     }
 
     pub fn update(&mut self, ident: &Ident, id: &NodeId, val: Value) -> Result<(), LoxError> {
@@ -96,8 +108,18 @@ impl Interpreter {
             *var = val;
             return Ok(());
         }
-        Err(LoxError::Runtime(
-            format!("could not find value for variable {ident}").into(),
-        ))
+        Err(LoxError::Runtime(format!(
+            "could not find value for variable {ident}"
+        )))
+    }
+    pub fn print_locals(&self) -> impl Display {
+        let mut out = String::new();
+        for (id, local) in self.locals.iter() {
+            writeln!(out, "{id}: {local}").unwrap();
+        }
+        out
+    }
+    pub fn env_debug_display(&self) -> impl Display {
+        self.env.debug_display()
     }
 }

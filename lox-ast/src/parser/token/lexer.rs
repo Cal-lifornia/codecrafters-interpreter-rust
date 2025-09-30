@@ -11,8 +11,8 @@ pub struct Lexer {
 
 impl Lexer {
     pub fn new(file: &str) -> Result<Self, LoxError> {
-        let file_contents = std::fs::read_to_string(file)
-            .map_err(|err| LoxError::Syntax(err.to_string().into()))?;
+        let file_contents =
+            std::fs::read_to_string(file).map_err(|err| LoxError::Syntax(err.to_string()))?;
 
         let (tokens, errs) = parse_tokens(&file_contents, file);
         if !errs.is_empty() {

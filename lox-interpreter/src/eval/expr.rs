@@ -1,4 +1,4 @@
-use lox_ast::ast::{BinOp, Expr, ExprKind, Literal, LogicOp, UnaryOp};
+use lox_ast::ast::{BinOp, Expr, ExprKind, FunSig, Literal, LogicOp, UnaryOp};
 use lox_shared::error::LoxError;
 
 use crate::{Interpreter, Value, eval::EvalResult};
@@ -90,18 +90,20 @@ impl Interpreter {
             },
             ExprKind::Variable(ident) => match self.find(ident, expr.attr().id()) {
                 Some(val) => Ok(Some(val)),
-                None => Err(LoxError::Runtime(
-                    format!("Undefined variable '{ident}'").into(),
-                )),
+                None => Err(LoxError::Runtime(format!(
+                    "Undefined variable '{ident}': {}\ncurrent stack\n{}",
+                    expr.attr().as_display(),
+                    self.env_debug_display()
+                ))),
             },
             ExprKind::InitVar(ident, expr) => {
                 if let Some(value) = self.evaluate_expr(expr)? {
                     self.insert(ident.clone(), value.clone());
                     Ok(Some(value))
                 } else {
-                    Err(LoxError::Syntax(
-                        format!("Can't assign empty expression to {ident}").into(),
-                    ))
+                    Err(LoxError::Syntax(format!(
+                        "Can't assign empty expression to {ident}"
+                    )))
                 }
             }
             ExprKind::UpdateVar(ident, expr) => {
@@ -109,9 +111,9 @@ impl Interpreter {
                     self.update(ident, expr.attr().id(), value.clone())?;
                     Ok(Some(value))
                 } else {
-                    Err(LoxError::Syntax(
-                        format!("Can't update {ident} to empty expression").into(),
-                    ))
+                    Err(LoxError::Syntax(format!(
+                        "Can't update {ident} to empty expression"
+                    )))
                 }
             }
             ExprKind::Print(expr) => {
@@ -122,21 +124,18 @@ impl Interpreter {
                 Ok(None)
             }
             ExprKind::MethodCall(ident, args) => {
-                // let sig = FunSig::method_call(ident.clone(), args.len());
+                let sig = FunSig::method_call(ident.clone(), args.len());
                 let mut vals = vec![];
                 let res = self.find(ident, expr.attr().id());
 
                 if let Value::Method(fun, closure) = res.unwrap_or(Value::Nil).into_inner() {
                     if fun.param_len() != args.len() {
-                        return Err(LoxError::Runtime(
-                            format!(
-                                "Fun {} expects {} args, got {}",
-                                fun.sig.ident,
-                                fun.param_len(),
-                                args.len()
-                            )
-                            .into(),
-                        ));
+                        return Err(LoxError::Runtime(format!(
+                            "Fun {} expects {} args, got {}",
+                            fun.sig.ident,
+                            fun.param_len(),
+                            args.len()
+                        )));
                     }
                     for arg in args.iter() {
                         if let Some(val) = self.evaluate_expr(arg)? {
@@ -148,14 +147,12 @@ impl Interpreter {
                         }
                     }
                     self.evaluate_function(fun, closure.clone(), vals)
-                }
-                // else if let Some(fun) = self.get_native_fun(&sig) {
-                //     fun.run().map(Some)
-                // }
-                else {
-                    Err(LoxError::Runtime(
-                        format!("cannot find method with name {ident}").into(),
-                    ))
+                } else if let Some(fun) = self.find_native_func(&sig) {
+                    fun.run(&vals)
+                } else {
+                    Err(LoxError::Runtime(format!(
+                        "cannot find method with name {ident}"
+                    )))
                 }
             }
             ExprKind::Return(opt) => match opt {

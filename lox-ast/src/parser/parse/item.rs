@@ -36,9 +36,10 @@ impl Parser {
 
     pub fn parse_function(&mut self) -> Result<Function, LoxError> {
         let Some(ident) = Ident::from_token(&self.current_token) else {
-            return Err(LoxError::Syntax(
-                format!("Expected identifier, got {}", self.current_token).into(),
-            ));
+            return Err(LoxError::Syntax(format!(
+                "Expected identifier, got {}",
+                self.current_token
+            )));
         };
         self.bump();
         let sig = self.parse_fun_sig(ident)?;

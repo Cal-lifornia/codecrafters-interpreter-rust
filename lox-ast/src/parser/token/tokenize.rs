@@ -81,7 +81,7 @@ pub fn parse_tokens(input: &str, file_name: &str) -> (Vec<Token>, Vec<LoxError>)
                                     ));
                                 }
                                 Err(err) => {
-                                    errs.push(LoxError::Syntax(err.to_string().into()));
+                                    errs.push(LoxError::Syntax(err.to_string()));
                                 }
                             }
                             State::Symbol
@@ -108,9 +108,9 @@ pub fn parse_tokens(input: &str, file_name: &str) -> (Vec<Token>, Vec<LoxError>)
                         }
                         State::Unquoted
                     } else {
-                        errs.push(LoxError::Syntax(
-                            format!("[line {line_num}] Error: Unexpected character: {ch}").into(),
-                        ));
+                        errs.push(LoxError::Syntax(format!(
+                            "[line {line_num}] Error: Unexpected character: {ch}"
+                        )));
                         State::Symbol
                     }
                 }
@@ -125,6 +125,7 @@ pub fn parse_tokens(input: &str, file_name: &str) -> (Vec<Token>, Vec<LoxError>)
                     State::Symbol
                 }
                 Some('\n') => {
+                    word.push('\n');
                     line_num += 1;
                     col_num = 0;
                     State::Quotes
@@ -134,9 +135,9 @@ pub fn parse_tokens(input: &str, file_name: &str) -> (Vec<Token>, Vec<LoxError>)
                     State::Quotes
                 }
                 None => {
-                    errs.push(LoxError::Syntax(
-                        format!("[line {line_num}] Error: Unterminated string.").into(),
-                    ));
+                    errs.push(LoxError::Syntax(format!(
+                        "[line {line_num}] Error: Unterminated string."
+                    )));
                     break;
                 }
             },
@@ -161,7 +162,7 @@ pub fn parse_tokens(input: &str, file_name: &str) -> (Vec<Token>, Vec<LoxError>)
                                 ));
                             }
                             Err(err) => {
-                                errs.push(LoxError::Syntax(err.to_string().into()));
+                                errs.push(LoxError::Syntax(err.to_string()));
                             }
                         }
                         State::Symbol
@@ -189,9 +190,9 @@ pub fn parse_tokens(input: &str, file_name: &str) -> (Vec<Token>, Vec<LoxError>)
                     if ch.is_alphanumeric() || ch == '_' {
                         word.push(ch);
                     } else {
-                        errs.push(LoxError::Syntax(
-                            format!("[line {line_num}] Error: Unexpected character: {ch}").into(),
-                        ));
+                        errs.push(LoxError::Syntax(format!(
+                            "[line {line_num}] Error: Unexpected character: {ch}"
+                        )));
                         state = State::Symbol;
                         continue;
                     }

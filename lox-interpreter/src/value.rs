@@ -14,7 +14,7 @@ pub enum Value {
     Number(f64),
     Boolean(bool),
     Nil,
-    Variable(Box<Value>),
+    // Variable(Box<Value>),
     Return(Box<Value>),
     Method(Function, Environment),
 }
@@ -26,7 +26,7 @@ impl Value {
             Self::Number(_) => true,
             Self::Boolean(val) => *val,
             Self::Nil => false,
-            Self::Variable(val) => val.is_truthy(),
+            // Self::Variable(val) => val.is_truthy(),
             Self::Return(val) => val.is_truthy(),
             Self::Method(_, _) => false,
         }
@@ -34,7 +34,7 @@ impl Value {
 
     pub fn into_inner(&self) -> &Self {
         match self {
-            Self::Variable(val) => val,
+            // Self::Variable(val) => val,
             Self::Return(val) => val,
             _ => self,
         }
@@ -48,7 +48,7 @@ impl Display for Value {
             Self::Number(val) => write!(f, "{val}"),
             Self::Boolean(val) => write!(f, "{val}"),
             Self::Nil => write!(f, "nil"),
-            Self::Variable(val) => write!(f, "{val}"),
+            // Self::Variable(val) => write!(f, "{val}"),
             Self::Return(val) => write!(f, "{val}"),
             Self::Method(fun, _) => write!(f, "<fn {}>", fun.sig.ident),
         }
@@ -64,7 +64,7 @@ impl Not for Value {
             Value::Number(_) => Value::Boolean(false),
             Value::Boolean(val) => Value::Boolean(!val),
             Value::Nil => Value::Boolean(true),
-            Value::Variable(lox_type) => !(*lox_type),
+            // Value::Variable(lox_type) => !(*lox_type),
             Value::Return(lox_type) => !(*lox_type),
             Value::Method(_, _) => Value::Boolean(false),
         }

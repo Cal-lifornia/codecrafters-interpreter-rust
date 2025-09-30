@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use crate::span::Span;
 
 #[derive(Debug, Clone)]
@@ -38,5 +40,11 @@ impl NodeId {
 
     pub fn index(&self) -> usize {
         self.0 as usize
+    }
+}
+
+impl Display for NodeId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
     }
 }

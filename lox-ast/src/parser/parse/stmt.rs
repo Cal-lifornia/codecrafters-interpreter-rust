@@ -52,16 +52,14 @@ impl Parser {
                 ))
             }
             _ => {
-                let stmt = self.parse_expr(0, false)?;
+                let stmt = self.parse_expr(0)?;
                 let next = self.look_ahead(1);
                 if matches!(next.kind(), TokenKind::Semicolon | TokenKind::RightParen) {
                     self.bump();
                     self.bump();
                     Ok(Stmt::new(StmtKind::Expr(stmt), attr))
                 } else {
-                    Err(LoxError::Syntax(
-                        format!("Expected semicolon, got {next}").into(),
-                    ))
+                    Err(LoxError::Syntax(format!("Expected semicolon, got {next}")))
                 }
             }
         }
