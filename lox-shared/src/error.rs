@@ -4,6 +4,8 @@ pub enum LoxError {
     Runtime(String),
     #[error("{0}")]
     Syntax(String),
+    #[error("{0}")]
+    Compile(String),
 }
 
 impl LoxError {
@@ -11,6 +13,7 @@ impl LoxError {
         match self {
             LoxError::Runtime(_) => 70,
             LoxError::Syntax(_) => 65,
+            LoxError::Compile(_) => 65,
         }
     }
 }

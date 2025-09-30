@@ -119,7 +119,13 @@ impl Interpreter {
         }
         out
     }
-    pub fn env_debug_display(&self) -> impl Display {
-        self.env.debug_display()
+    pub fn debug_display(&self) -> impl Display {
+        let mut out = String::new();
+        writeln!(out, "globals:").unwrap();
+        for (ident, global) in self.globals.iter() {
+            writeln!(out, "{ident}: {global}").unwrap();
+        }
+        writeln!(out, "{}", self.env.debug_display()).unwrap();
+        out
     }
 }

@@ -26,7 +26,9 @@ impl Resolver {
         for (idx, scope) in self.scopes.iter().rev().enumerate() {
             match scope.get(ident) {
                 Some(false) => {
-                    return Err(LoxError::Runtime("Found empty var".into()));
+                    return Err(LoxError::Compile(format!(
+                        "Error at '{ident}'; Can't read local variable in it's own initialiser",
+                    )));
                 }
                 Some(true) => {
                     self.locals.insert(id, idx);
@@ -134,8 +136,8 @@ impl Resolver {
             ExprKind::Variable(ident) => self.resolve_local(ident, expr.attr().id().clone()),
             ExprKind::InitVar(ident, sub_expr) => {
                 self.declare(ident.clone());
-                self.define(ident.clone());
                 self.resolve_expr(sub_expr)?;
+                self.define(ident.clone());
                 self.resolve_local(ident, expr.attr.id().clone())
             }
             ExprKind::UpdateVar(ident, expr) => {

@@ -93,7 +93,7 @@ impl Interpreter {
                 None => Err(LoxError::Runtime(format!(
                     "Undefined variable '{ident}': {}\ncurrent stack\n{}",
                     expr.attr().as_display(),
-                    self.env_debug_display()
+                    self.debug_display()
                 ))),
             },
             ExprKind::InitVar(ident, expr) => {
