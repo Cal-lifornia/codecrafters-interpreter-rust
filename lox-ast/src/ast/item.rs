@@ -35,6 +35,7 @@ impl Item {
 #[derive(Debug, Clone, PartialEq)]
 pub enum ItemKind {
     Fun(Function),
+    Class(Class),
 }
 
 #[derive(Debug, Clone)]
@@ -53,6 +54,11 @@ impl Function {
     pub fn param_len(&self) -> usize {
         self.sig.inputs.len()
     }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Class {
+    pub ident: Ident,
 }
 
 #[derive(Debug, Clone)]

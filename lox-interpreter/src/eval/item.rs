@@ -14,6 +14,10 @@ impl Interpreter {
                 );
                 Ok(())
             }
+            ItemKind::Class(class) => {
+                self.insert(class.ident.clone(), Value::Class(class.clone()));
+                Ok(())
+            }
         }
     }
 

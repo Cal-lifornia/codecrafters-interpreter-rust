@@ -126,6 +126,12 @@ impl Resolver {
                 }
                 Ok(())
             }
+            ItemKind::Class(class) => {
+                let ident = &class.ident;
+                self.declare(ident.clone())?;
+                self.define(ident.clone());
+                Ok(())
+            }
         }
     }
 

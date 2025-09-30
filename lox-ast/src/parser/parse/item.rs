@@ -1,11 +1,42 @@
 use lox_shared::error::LoxError;
 
 use crate::{
-    ast::{FunSig, Function, Ident},
-    parser::{Parser, token::TokenKind},
+    ast::{Attribute, Class, FunSig, Function, Ident, Item, ItemKind},
+    parser::{
+        Parser,
+        token::{ReservedWord, TokenKind},
+    },
 };
 
 impl Parser {
+    pub fn parse_item(&mut self) -> Result<Item, LoxError> {
+        let attr = Attribute::new(self.new_node_id(), self.current_token.span().clone());
+        match self.current_token.kind() {
+            TokenKind::Reserved(ReservedWord::Class) => {
+                self.bump();
+                let Some(ident) = Ident::from_token(&self.current_token) else {
+                    return Err(LoxError::Syntax(format!(
+                        "Expecting class identifier, got {}",
+                        self.current_token
+                    )));
+                };
+                self.bump();
+                assert_eq!(self.current_token.kind(), &TokenKind::LeftBrace);
+                self.bump();
+                assert_eq!(self.current_token.kind(), &TokenKind::RightBrace);
+                self.bump();
+                Ok(Item::new(ItemKind::Class(Class { ident }), attr))
+            }
+            TokenKind::Reserved(ReservedWord::Fun) => {
+                self.bump();
+                Ok(Item::new(
+                    crate::ast::ItemKind::Fun(self.parse_function()?),
+                    attr,
+                ))
+            }
+            _ => unreachable!(),
+        }
+    }
     pub fn parse_fun_sig(&mut self, ident: Ident) -> Result<FunSig, LoxError> {
         assert_eq!(self.current_token, TokenKind::LeftParen);
         self.bump();

@@ -3,7 +3,7 @@ use std::{
     ops::{Add, Div, Mul, Neg, Not, Sub},
 };
 
-use lox_ast::ast::Function;
+use lox_ast::ast::{Class, Function};
 use lox_shared::{SStr, error::LoxError};
 
 use crate::environment::Environment;
@@ -17,6 +17,7 @@ pub enum Value {
     // Variable(Box<Value>),
     Return(Box<Value>),
     Method(Function, Environment),
+    Class(Class),
 }
 
 impl Value {
@@ -29,6 +30,7 @@ impl Value {
             // Self::Variable(val) => val.is_truthy(),
             Self::Return(val) => val.is_truthy(),
             Self::Method(_, _) => false,
+            Self::Class(_) => false,
         }
     }
 
@@ -51,6 +53,7 @@ impl Display for Value {
             // Self::Variable(val) => write!(f, "{val}"),
             Self::Return(val) => write!(f, "{val}"),
             Self::Method(fun, _) => write!(f, "<fn {}>", fun.sig.ident),
+            Self::Class(class) => write!(f, "{}", class.ident),
         }
     }
 }
@@ -67,6 +70,7 @@ impl Not for Value {
             // Value::Variable(lox_type) => !(*lox_type),
             Value::Return(lox_type) => !(*lox_type),
             Value::Method(_, _) => Value::Boolean(false),
+            Value::Class(_) => Value::Boolean(false),
         }
     }
 }

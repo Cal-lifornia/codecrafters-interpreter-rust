@@ -43,13 +43,8 @@ impl Parser {
 
                 Ok(Stmt::new(StmtKind::ForLoop(Box::new(args), kind), attr))
             }
-            TokenKind::Reserved(ReservedWord::Fun) => {
-                self.bump();
-                let function = self.parse_function()?;
-                Ok(Stmt::new(
-                    StmtKind::Item(Item::new(crate::ast::ItemKind::Fun(function), attr.clone())),
-                    attr,
-                ))
+            TokenKind::Reserved(ReservedWord::Fun | ReservedWord::Class) => {
+                Ok(Stmt::new(StmtKind::Item(self.parse_item()?), attr))
             }
             _ => {
                 let stmt = self.parse_expr(0)?;
