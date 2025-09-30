@@ -21,7 +21,7 @@ impl Interpreter {
         }
     }
 
-    pub fn evaluate_function(
+    pub fn run_function(
         &mut self,
         fun: &Function,
         closure: Environment,

@@ -18,6 +18,7 @@ pub enum Value {
     Return(Box<Value>),
     Method(Function, Environment),
     Class(Class),
+    ClassInstance(Class),
 }
 
 impl Value {
@@ -31,6 +32,7 @@ impl Value {
             Self::Return(val) => val.is_truthy(),
             Self::Method(_, _) => false,
             Self::Class(_) => false,
+            Self::ClassInstance(_) => true,
         }
     }
 
@@ -54,6 +56,7 @@ impl Display for Value {
             Self::Return(val) => write!(f, "{val}"),
             Self::Method(fun, _) => write!(f, "<fn {}>", fun.sig.ident),
             Self::Class(class) => write!(f, "{}", class.ident),
+            Self::ClassInstance(class) => write!(f, "{} instance", class.ident),
         }
     }
 }
@@ -71,6 +74,7 @@ impl Not for Value {
             Value::Return(lox_type) => !(*lox_type),
             Value::Method(_, _) => Value::Boolean(false),
             Value::Class(_) => Value::Boolean(false),
+            Value::ClassInstance(_) => Value::Boolean(false),
         }
     }
 }

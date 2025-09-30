@@ -138,37 +138,41 @@ impl Interpreter {
             ExprKind::MethodCall(ident, args) => {
                 let sig = FunSig::method_call(ident.clone(), args.len());
                 let mut vals = vec![];
-                let res = self.find(ident, expr.attr().id());
-
-                if let Value::Method(fun, closure) = res.unwrap_or(Value::Nil).into_inner() {
-                    if fun.param_len() != args.len() {
-                        return Err(LoxError::Runtime(format!(
-                            "Fun {} expects {} args, got {}",
-                            fun.sig.ident,
-                            fun.param_len(),
-                            args.len()
-                        )));
+                match self.find(ident, expr.attr().id()) {
+                    Some(Value::Method(fun, closure)) => {
+                        if fun.param_len() != args.len() {
+                            return Err(LoxError::Runtime(format!(
+                                "Fun {} expects {} args, got {}",
+                                fun.sig.ident,
+                                fun.param_len(),
+                                args.len()
+                            )));
+                        }
+                        for arg in args.iter() {
+                            if let Some(val) = self.evaluate_expr(arg)? {
+                                vals.push(val);
+                            } else {
+                                return Err(LoxError::Syntax(
+                                    "Can't use empty statement as parameter".into(),
+                                ));
+                            }
+                        }
+                        self.run_function(&fun, closure.clone(), vals)
                     }
-                    for arg in args.iter() {
-                        if let Some(val) = self.evaluate_expr(arg)? {
-                            vals.push(val);
+                    Some(Value::Class(class)) => Ok(Some(Value::ClassInstance(class.clone()))),
+                    _ => {
+                        if let Some(fun) = self.find_native_func(&sig) {
+                            fun.run(&vals)
                         } else {
-                            return Err(LoxError::Syntax(
-                                "Can't use empty statement as parameter".into(),
-                            ));
+                            #[cfg(debug_assertions)]
+                            eprintln!("'current stack'\n{}", self.debug_display());
+
+                            Err(LoxError::Runtime(format!(
+                                "{}; Cannot find method with name {ident}",
+                                expr.attr().as_display(),
+                            )))
                         }
                     }
-                    self.evaluate_function(fun, closure.clone(), vals)
-                } else if let Some(fun) = self.find_native_func(&sig) {
-                    fun.run(&vals)
-                } else {
-                    #[cfg(debug_assertions)]
-                    eprintln!("'current stack'\n{}", self.debug_display());
-
-                    Err(LoxError::Runtime(format!(
-                        "{}; Cannot find method with name {ident}",
-                        expr.attr().as_display(),
-                    )))
                 }
             }
             ExprKind::Return(opt) => match opt {
