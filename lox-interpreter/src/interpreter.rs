@@ -121,11 +121,15 @@ impl Interpreter {
     }
     pub fn debug_display(&self) -> impl Display {
         let mut out = String::new();
-        writeln!(out, "globals:").unwrap();
+        writeln!(out, "GLOBALS").unwrap();
         for (ident, global) in self.globals.iter() {
             writeln!(out, "{ident}: {global}").unwrap();
         }
-        writeln!(out, "{}", self.env.debug_display()).unwrap();
+        writeln!(out, "LOCALS").unwrap();
+        for (id, local) in self.locals.iter() {
+            writeln!(out, "{id}: {local}").unwrap();
+        }
+        writeln!(out, "STACK\n{}", self.env.debug_display()).unwrap();
         out
     }
 }

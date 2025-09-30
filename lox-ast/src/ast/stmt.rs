@@ -1,4 +1,4 @@
-use crate::ast::{Attribute, Expr, Item, expr::Group};
+use crate::ast::{Attribute, Expr, ExprKind, Item, expr::Group};
 
 #[derive(Debug, Clone)]
 pub struct Stmt {
@@ -17,6 +17,13 @@ impl Stmt {
 
     pub fn attr(&self) -> &Attribute {
         &self.attr
+    }
+    pub fn as_expr_kind(&self) -> Option<&ExprKind> {
+        if let StmtKind::Expr(expr) = self.kind() {
+            Some(expr.kind())
+        } else {
+            None
+        }
     }
 }
 

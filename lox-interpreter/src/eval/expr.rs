@@ -90,11 +90,15 @@ impl Interpreter {
             },
             ExprKind::Variable(ident) => match self.find(ident, expr.attr().id()) {
                 Some(val) => Ok(Some(val)),
-                None => Err(LoxError::Runtime(format!(
-                    "Undefined variable '{ident}': {}\ncurrent stack\n{}",
-                    expr.attr().as_display(),
-                    self.debug_display()
-                ))),
+                None => {
+                    #[cfg(debug_assertions)]
+                    eprintln!("'current stack'\n{}", self.debug_display());
+
+                    Err(LoxError::Runtime(format!(
+                        "{}; Undefined variable '{ident}'",
+                        expr.attr().as_display()
+                    )))
+                }
             },
             ExprKind::InitVar(ident, expr) => {
                 if let Some(value) = self.evaluate_expr(expr)? {
@@ -106,9 +110,17 @@ impl Interpreter {
                     )))
                 }
             }
-            ExprKind::UpdateVar(ident, expr) => {
-                if let Some(value) = self.evaluate_expr(expr)? {
-                    self.update(ident, expr.attr().id(), value.clone())?;
+            ExprKind::UpdateVar(ident, subexpr) => {
+                if let Some(value) = self.evaluate_expr(subexpr)? {
+                    if let Err(err) = self.update(ident, expr.attr().id(), value.clone()) {
+                        #[cfg(debug_assertions)]
+                        eprintln!("'current stack'\n{}", self.debug_display());
+
+                        return Err(LoxError::Syntax(format!(
+                            "{}; {err}",
+                            expr.attr().as_display()
+                        )));
+                    }
                     Ok(Some(value))
                 } else {
                     Err(LoxError::Syntax(format!(
@@ -150,8 +162,12 @@ impl Interpreter {
                 } else if let Some(fun) = self.find_native_func(&sig) {
                     fun.run(&vals)
                 } else {
+                    #[cfg(debug_assertions)]
+                    eprintln!("'current stack'\n{}", self.debug_display());
+
                     Err(LoxError::Runtime(format!(
-                        "cannot find method with name {ident}"
+                        "{}; Cannot find method with name {ident}",
+                        expr.attr().as_display(),
                     )))
                 }
             }

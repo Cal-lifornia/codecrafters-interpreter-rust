@@ -8,6 +8,7 @@ use lox_shared::error::LoxError;
 pub struct Resolver {
     pub scopes: Vec<HashMap<Ident, bool>>,
     locals: HashMap<NodeId, usize>,
+    can_return: bool,
 }
 
 impl Resolver {
@@ -31,6 +32,9 @@ impl Resolver {
                     )));
                 }
                 Some(true) => {
+                    #[cfg(debug_assertions)]
+                    println!("inserted {ident} with id {id} with scope num {idx}",);
+
                     self.locals.insert(id, idx);
                     break;
                 }
@@ -38,6 +42,10 @@ impl Resolver {
                     continue;
                 }
             }
+        }
+
+        if self.scopes.is_empty() && cfg!(debug_assertions) {
+            println!("Scopes empty when looking for '{ident}'");
         }
         Ok(())
     }
@@ -63,7 +71,7 @@ impl Resolver {
         match stmt.kind() {
             StmtKind::Item(item) => self.resolve_item(item),
             StmtKind::Expr(expr) => self.resolve_expr(expr),
-            StmtKind::Block(block) => self.resolve_block(block, true),
+            StmtKind::Block(block) => self.resolve_block(block, false),
             StmtKind::If(group, if_stmt, else_stmt) => {
                 self.resolve_expr(&group.0)?;
                 self.resolve_ctrl_flow_stmt(if_stmt)?;
@@ -94,36 +102,45 @@ impl Resolver {
 
     pub fn resolve_ctrl_flow_stmt(&mut self, stmt: &ControlFlowStmt) -> Result<(), LoxError> {
         match stmt {
-            ControlFlowStmt::Stmt(stmt) => self.resolve_stmt(stmt),
-            ControlFlowStmt::Block(block) => self.resolve_block(block, true),
+            ControlFlowStmt::Stmt(ctrl_stmt) => self.resolve_stmt(ctrl_stmt),
+            ControlFlowStmt::Block(block) => self.resolve_block(block, false),
         }
     }
 
     pub fn resolve_item(&mut self, item: &Item) -> Result<(), LoxError> {
         match item.kind() {
             ItemKind::Fun(function) => {
+                let already_in_function = self.can_return;
                 self.declare(function.sig.ident.clone())?;
                 self.define(function.sig.ident.clone());
+                self.can_return = true;
                 self.enter_scope();
                 for input in function.sig.inputs.clone() {
                     self.declare(input.clone())?;
                     self.define(input.clone());
                 }
-                self.resolve_block(&function.body, false)?;
+                self.resolve_block(&function.body, true)?;
                 self.exit_scope();
+                if !already_in_function {
+                    self.can_return = false;
+                }
                 Ok(())
             }
         }
     }
 
-    pub fn resolve_block(&mut self, block: &Block, enter_scope: bool) -> Result<(), LoxError> {
-        if enter_scope {
+    pub fn resolve_block(
+        &mut self,
+        block: &Block,
+        in_function_scope: bool,
+    ) -> Result<(), LoxError> {
+        if !in_function_scope {
             self.enter_scope();
         }
         for stmt in block.stmts.iter() {
             self.resolve_stmt(stmt)?;
         }
-        if enter_scope {
+        if !in_function_scope {
             self.exit_scope();
         }
         Ok(())
@@ -149,9 +166,9 @@ impl Resolver {
                 self.define(ident.clone());
                 self.resolve_local(ident, expr.attr.id().clone())
             }
-            ExprKind::UpdateVar(ident, expr) => {
-                self.resolve_expr(expr)?;
-                self.resolve_local(ident, expr.attr().id().clone())
+            ExprKind::UpdateVar(ident, sub_expr) => {
+                self.resolve_local(ident, expr.attr().id().clone())?;
+                self.resolve_expr(sub_expr)
             }
             ExprKind::Print(expr) => self.resolve_expr(expr),
             ExprKind::MethodCall(ident, exprs) => {
@@ -161,8 +178,19 @@ impl Resolver {
                 }
                 Ok(())
             }
-            ExprKind::Return(Some(val)) => self.resolve_expr(val),
-            ExprKind::Return(None) => Ok(()),
+            ExprKind::Return(opt) => {
+                if self.can_return {
+                    match opt {
+                        Some(val) => self.resolve_expr(val),
+                        None => Ok(()),
+                    }
+                } else {
+                    Err(LoxError::Compile(format!(
+                        "{}; Error at 'return': Can't return from non-function scopes",
+                        expr.attr().as_display()
+                    )))
+                }
+            }
         }
     }
 }

@@ -84,7 +84,7 @@ impl Environment {
     pub fn debug_display(&self) -> impl Display {
         let mut out = String::new();
         for (idx, scope) in self.stack.iter().enumerate() {
-            out.push_str(format!("Stack {idx}: \n").as_str());
+            out.push_str(format!("STACK {idx}: \n").as_str());
             out.push_str(format!("{}", scope.borrow().debug_print()).as_str());
         }
         out
