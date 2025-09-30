@@ -31,7 +31,7 @@ impl Interpreter {
                 self.insert(input.clone(), arg.clone());
             });
         let res = self
-            .evaluate_block(&fun.body)
+            .evaluate_block(&fun.body, false)
             .map(|val| val.map(|lox| lox.into_inner().clone()));
         self.exit_closure(current_env);
         res

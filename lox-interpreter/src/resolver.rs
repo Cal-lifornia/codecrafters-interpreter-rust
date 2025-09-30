@@ -42,10 +42,15 @@ impl Resolver {
         Ok(())
     }
 
-    pub fn declare(&mut self, ident: Ident) {
-        if let Some(last) = self.scopes.last_mut() {
-            last.insert(ident, false);
+    pub fn declare(&mut self, ident: Ident) -> Result<(), LoxError> {
+        if let Some(last) = self.scopes.last_mut()
+            && last.insert(ident.clone(), false).is_some()
+        {
+            return Err(LoxError::Compile(format!(
+                "Error at '{ident}; Already a variable with this name in this scope"
+            )));
         }
+        Ok(())
     }
 
     pub fn define(&mut self, ident: Ident) {
@@ -58,7 +63,7 @@ impl Resolver {
         match stmt.kind() {
             StmtKind::Item(item) => self.resolve_item(item),
             StmtKind::Expr(expr) => self.resolve_expr(expr),
-            StmtKind::Block(block) => self.resolve_block(block),
+            StmtKind::Block(block) => self.resolve_block(block, true),
             StmtKind::If(group, if_stmt, else_stmt) => {
                 self.resolve_expr(&group.0)?;
                 self.resolve_ctrl_flow_stmt(if_stmt)?;
@@ -90,33 +95,37 @@ impl Resolver {
     pub fn resolve_ctrl_flow_stmt(&mut self, stmt: &ControlFlowStmt) -> Result<(), LoxError> {
         match stmt {
             ControlFlowStmt::Stmt(stmt) => self.resolve_stmt(stmt),
-            ControlFlowStmt::Block(block) => self.resolve_block(block),
+            ControlFlowStmt::Block(block) => self.resolve_block(block, true),
         }
     }
 
     pub fn resolve_item(&mut self, item: &Item) -> Result<(), LoxError> {
         match item.kind() {
             ItemKind::Fun(function) => {
-                self.declare(function.sig.ident.clone());
+                self.declare(function.sig.ident.clone())?;
                 self.define(function.sig.ident.clone());
                 self.enter_scope();
                 for input in function.sig.inputs.clone() {
-                    self.declare(input.clone());
+                    self.declare(input.clone())?;
                     self.define(input.clone());
                 }
-                self.resolve_block(&function.body)?;
+                self.resolve_block(&function.body, false)?;
                 self.exit_scope();
                 Ok(())
             }
         }
     }
 
-    pub fn resolve_block(&mut self, block: &Block) -> Result<(), LoxError> {
-        self.enter_scope();
+    pub fn resolve_block(&mut self, block: &Block, enter_scope: bool) -> Result<(), LoxError> {
+        if enter_scope {
+            self.enter_scope();
+        }
         for stmt in block.stmts.iter() {
             self.resolve_stmt(stmt)?;
         }
-        self.exit_scope();
+        if enter_scope {
+            self.exit_scope();
+        }
         Ok(())
     }
 
@@ -135,7 +144,7 @@ impl Resolver {
             }
             ExprKind::Variable(ident) => self.resolve_local(ident, expr.attr().id().clone()),
             ExprKind::InitVar(ident, sub_expr) => {
-                self.declare(ident.clone());
+                self.declare(ident.clone())?;
                 self.resolve_expr(sub_expr)?;
                 self.define(ident.clone());
                 self.resolve_local(ident, expr.attr.id().clone())
@@ -147,11 +156,9 @@ impl Resolver {
             ExprKind::Print(expr) => self.resolve_expr(expr),
             ExprKind::MethodCall(ident, exprs) => {
                 self.resolve_local(ident, expr.attr().id().clone())?;
-                // self.enter_scope();
                 for expr in exprs {
                     self.resolve_expr(expr)?;
                 }
-                // self.exit_scope();
                 Ok(())
             }
             ExprKind::Return(Some(val)) => self.resolve_expr(val),

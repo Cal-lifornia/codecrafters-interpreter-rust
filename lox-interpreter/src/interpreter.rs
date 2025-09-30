@@ -2,7 +2,7 @@ use std::fmt::{Display, Write};
 
 use hashbrown::HashMap;
 use lox_ast::{
-    ast::{FunSig, Ident, NodeId, StmtKind},
+    ast::{FunSig, Ident, NodeId},
     parser::{
         Parser,
         token::{Lexer, TokenKind, generate_token_stream},

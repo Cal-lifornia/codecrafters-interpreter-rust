@@ -11,7 +11,7 @@ impl Interpreter {
                 Ok(None)
             }
             StmtKind::Expr(expr) => self.evaluate_expr(expr),
-            StmtKind::Block(block) => self.evaluate_block(block),
+            StmtKind::Block(block) => self.evaluate_block(block, true),
             StmtKind::If(cond, if_kind, if_else) => {
                 if let Some(cond_eval) = self.evaluate_expr(&cond.0)? {
                     // println!("cond_eval: {cond_eval}");
@@ -64,23 +64,29 @@ impl Interpreter {
             }
         }
     }
-    pub fn evaluate_block(&mut self, block: &Block) -> EvalResult {
-        self.enter_scope();
+    pub fn evaluate_block(&mut self, block: &Block, enter_scope: bool) -> EvalResult {
+        if enter_scope {
+            self.enter_scope();
+        }
         for stmt in block.stmts.clone() {
             let result = self.evaluate_stmt(&stmt)?;
             if matches!(result, Some(Value::Return(_))) {
-                self.exit_scope();
+                if enter_scope {
+                    self.exit_scope();
+                }
                 return Ok(result);
             }
         }
-        self.exit_scope();
+        if enter_scope {
+            self.exit_scope();
+        }
         Ok(Some(Value::Nil))
     }
 
     pub fn evaluate_control_flow_stmt(&mut self, stmt: &ControlFlowStmt) -> EvalResult {
         match stmt {
             ControlFlowStmt::Stmt(stmt) => self.evaluate_stmt(stmt),
-            ControlFlowStmt::Block(block) => self.evaluate_block(block),
+            ControlFlowStmt::Block(block) => self.evaluate_block(block, true),
         }
     }
 }
