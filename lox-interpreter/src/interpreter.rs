@@ -2,7 +2,7 @@ use std::fmt::{Display, Write};
 
 use hashbrown::HashMap;
 use lox_ast::{
-    ast::{FunSig, Ident, NodeId},
+    ast::{Attribute, FunSig, Ident, NodeId},
     parser::{
         Parser,
         token::{Lexer, TokenKind, generate_token_stream},
@@ -11,9 +11,10 @@ use lox_ast::{
 use lox_shared::error::LoxError;
 
 use crate::{
-    Resolver, Value,
+    Resolver,
     environment::Environment,
     std_lib::{Clock, NativeFunction},
+    value::Value,
 };
 
 #[derive(Default)]
@@ -95,6 +96,20 @@ impl Interpreter {
         }
     }
 
+    // pub fn find_class_property(&self, ident: &Ident, id: &NodeId, prop: &Ident) -> Option<Value> {
+    //     if let Some(dist) = self.locals.get(id) {
+    //         if let Some(Value::ClassInst(inst)) = self.env.find(ident, *dist) {
+    //             inst.properties.get(prop).cloned()
+    //         } else {
+    //             None
+    //         }
+    //     } else if let Some(Value::ClassInst(inst)) = self.globals.get(ident) {
+    //         inst.properties.get(prop).cloned()
+    //     } else {
+    //         None
+    //     }
+    // }
+
     pub fn find_native_func(&self, fun_sig: &FunSig) -> Option<&dyn NativeFunction> {
         self.native_functions.get(fun_sig).map(|fun| fun.as_ref())
     }
@@ -112,6 +127,34 @@ impl Interpreter {
             "could not find value for variable {ident}"
         )))
     }
+
+    // pub fn update_class_instance(
+    //     &mut self,
+    //     ident: &Ident,
+    //     id: &NodeId,
+    //     prop: Ident,
+    //     val: Value,
+    // ) -> Result<(), LoxError> {
+    //     if let Some(dist) = self.locals.get(id) {
+    //         if self
+    //             .env
+    //             .update_class_instance(ident, *dist, prop.clone(), val)
+    //             .is_none()
+    //         {
+    //             Err(LoxError::Runtime(format!(
+    //                 "Property '{prop}' on class '{ident}' has not been initiated"
+    //             )))
+    //         } else {
+    //             Ok(())
+    //         }
+    //     } else if let Some(Value::ClassInst(inst)) = self.globals.get_mut(ident) {
+    //         inst.properties.insert(prop, val);
+    //         Ok(())
+    //     } else {
+    //         Err(LoxError::Runtime(format!("class {ident} not found")))
+    //     }
+    // }
+
     pub fn print_locals(&self) -> impl Display {
         let mut out = String::new();
         for (id, local) in self.locals.iter() {
@@ -132,4 +175,8 @@ impl Interpreter {
         writeln!(out, "STACK\n{}", self.env.debug_display()).unwrap();
         out
     }
+}
+
+pub(crate) fn runtime_err(attr: &Attribute, out: impl Display) -> LoxError {
+    LoxError::Runtime(format!("Error; {}; {out}", attr.as_display()))
 }

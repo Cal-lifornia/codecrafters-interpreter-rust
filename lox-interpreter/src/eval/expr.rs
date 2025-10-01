@@ -1,7 +1,14 @@
+use std::{cell::RefCell, rc::Rc};
+
 use lox_ast::ast::{BinOp, Expr, ExprKind, FunSig, Literal, LogicOp, UnaryOp};
 use lox_shared::error::LoxError;
 
-use crate::{Interpreter, Value, eval::EvalResult};
+use crate::{
+    Interpreter,
+    eval::EvalResult,
+    runtime_err,
+    value::{ClassInstance, Value},
+};
 
 impl Interpreter {
     pub fn evaluate_expr(&mut self, expr: &Expr) -> EvalResult {
@@ -159,7 +166,9 @@ impl Interpreter {
                         }
                         self.run_function(&fun, closure.clone(), vals)
                     }
-                    Some(Value::Class(class)) => Ok(Some(Value::ClassInstance(class.clone()))),
+                    Some(Value::Class(class)) => Ok(Some(Value::ClassInst(Rc::new(RefCell::new(
+                        ClassInstance::new(class.clone()),
+                    ))))),
                     _ => {
                         if let Some(fun) = self.find_native_func(&sig) {
                             fun.run(&vals)
@@ -173,6 +182,35 @@ impl Interpreter {
                             )))
                         }
                     }
+                }
+            }
+            ExprKind::Get(expr, prop) => {
+                if let Some(Value::ClassInst(inst)) = self.evaluate_expr(expr)? {
+                    Ok(inst.borrow().properties.get(prop).cloned())
+                } else {
+                    Err(LoxError::Runtime(format!(
+                        "{}; (get) only classes have fields",
+                        expr.attr().as_display()
+                    )))
+                }
+            }
+            ExprKind::Set(expr, prop, sub_expr) => {
+                if let Some(val) = self.evaluate_expr(sub_expr)? {
+                    let ret = self.evaluate_expr(expr)?;
+                    if let Some(Value::ClassInst(inst)) = ret {
+                        inst.borrow_mut().properties.insert(prop.clone(), val);
+                        Ok(None)
+                    } else {
+                        Err(LoxError::Runtime(format!(
+                            "{}; (set) only classes have fields; got {ret:#?}",
+                            expr.attr().as_display()
+                        )))
+                    }
+                } else {
+                    Err(LoxError::Runtime(format!(
+                        "{}; Cannot assign empty expression to class propery",
+                        expr.attr().as_display()
+                    )))
                 }
             }
             ExprKind::Return(opt) => match opt {

@@ -1,6 +1,6 @@
 use lox_shared::mod_flat;
 
-use crate::{Value, eval::EvalResult};
+use crate::{eval::EvalResult, value::Value};
 
 mod_flat!(clock);
 

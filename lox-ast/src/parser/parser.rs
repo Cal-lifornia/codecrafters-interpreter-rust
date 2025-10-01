@@ -1,5 +1,9 @@
+use std::fmt::Display;
+
+use lox_shared::error::LoxError;
+
 use crate::{
-    ast::NodeId,
+    ast::{Attribute, NodeId},
     parser::token::{Token, TokenCursor, TokenStream, TokenTree, TokenTreeCursor},
 };
 
@@ -33,6 +37,11 @@ impl Parser {
 
         self.prev_token = std::mem::replace(&mut self.current_token, next);
         self.bumps += 1;
+    }
+
+    pub fn generate_attr(&mut self) -> Attribute {
+        let span = self.current_token.span().clone();
+        Attribute::new(self.new_node_id(), span)
     }
 
     pub fn new_node_id(&mut self) -> NodeId {
@@ -71,4 +80,8 @@ impl Parser {
 
         token
     }
+}
+
+pub(crate) fn syntax_error(attr: &Attribute, out: impl Display) -> LoxError {
+    LoxError::Syntax(format!("{}; {out}", attr.as_display()))
 }

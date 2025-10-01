@@ -1,6 +1,6 @@
 use lox_shared::{error::LoxError, mod_flat};
 
-use crate::Value;
+use crate::value::Value;
 
 mod_flat!(item expr stmt);
 

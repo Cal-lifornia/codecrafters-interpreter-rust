@@ -5,7 +5,7 @@ use crate::ast::{Attribute, NodeId, ident::Ident};
 #[derive(Debug, Clone)]
 pub struct Expr {
     pub kind: ExprKind,
-    pub attr: Attribute,
+    attr: Attribute,
 }
 
 impl Display for Expr {
@@ -55,6 +55,8 @@ pub enum ExprKind {
     UpdateVar(Ident, Box<Expr>),
     Print(Box<Expr>),
     MethodCall(Ident, Vec<Expr>),
+    Get(Box<Expr>, Ident),
+    Set(Box<Expr>, Ident, Box<Expr>),
     Return(Option<Box<Expr>>),
 }
 
@@ -75,6 +77,10 @@ impl Display for ExprKind {
             Self::Print(expr) => write!(f, "printing {expr}"),
             Self::MethodCall(ident, args) => {
                 write!(f, "calling fun {ident} with args: {args:?}")
+            }
+            Self::Get(inst, prop) => write!(f, "(get class: {inst}; property: {prop})"),
+            Self::Set(inst, prop, expr) => {
+                write!(f, "(set class: {inst}; property: {prop} val: {expr})")
             }
             Self::Return(opt) => match opt {
                 Some(expr) => write!(f, "(return {expr})"),

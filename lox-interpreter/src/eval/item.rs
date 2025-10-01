@@ -1,7 +1,7 @@
 use lox_ast::ast::{Function, Item, ItemKind};
 use lox_shared::error::LoxError;
 
-use crate::{Interpreter, Value, environment::Environment, eval::EvalResult};
+use crate::{Interpreter, environment::Environment, eval::EvalResult, value::Value};
 
 impl Interpreter {
     pub fn evaluate_item(&mut self, item: &Item) -> Result<(), LoxError> {

@@ -1,7 +1,7 @@
 use lox_ast::ast::{Block, ControlFlowStmt, Stmt, StmtKind};
 use lox_shared::error::LoxError;
 
-use crate::{Interpreter, Value, eval::EvalResult};
+use crate::{Interpreter, eval::EvalResult, value::Value};
 
 impl Interpreter {
     pub fn evaluate_stmt(&mut self, stmt: &Stmt) -> EvalResult {

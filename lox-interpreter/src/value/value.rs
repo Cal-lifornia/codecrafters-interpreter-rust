@@ -1,12 +1,14 @@
 use std::{
+    cell::RefCell,
     fmt::Display,
     ops::{Add, Div, Mul, Neg, Not, Sub},
+    rc::Rc,
 };
 
 use lox_ast::ast::{Class, Function};
 use lox_shared::{SStr, error::LoxError};
 
-use crate::environment::Environment;
+use crate::{environment::Environment, value::ClassInstance};
 
 #[derive(Debug, Clone)]
 pub enum Value {
@@ -18,7 +20,7 @@ pub enum Value {
     Return(Box<Value>),
     Method(Function, Environment),
     Class(Class),
-    ClassInstance(Class),
+    ClassInst(Rc<RefCell<ClassInstance>>),
 }
 
 impl Value {
@@ -32,7 +34,7 @@ impl Value {
             Self::Return(val) => val.is_truthy(),
             Self::Method(_, _) => false,
             Self::Class(_) => false,
-            Self::ClassInstance(_) => true,
+            Self::ClassInst(_) => true,
         }
     }
 
@@ -56,7 +58,7 @@ impl Display for Value {
             Self::Return(val) => write!(f, "{val}"),
             Self::Method(fun, _) => write!(f, "<fn {}>", fun.sig.ident),
             Self::Class(class) => write!(f, "{}", class.ident),
-            Self::ClassInstance(class) => write!(f, "{} instance", class.ident),
+            Self::ClassInst(class_inst) => write!(f, "{}", class_inst.borrow()),
         }
     }
 }
@@ -74,7 +76,7 @@ impl Not for Value {
             Value::Return(lox_type) => !(*lox_type),
             Value::Method(_, _) => Value::Boolean(false),
             Value::Class(_) => Value::Boolean(false),
-            Value::ClassInstance(_) => Value::Boolean(false),
+            Value::ClassInst(_) => Value::Boolean(false),
         }
     }
 }

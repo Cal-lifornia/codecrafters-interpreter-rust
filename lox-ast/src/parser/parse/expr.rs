@@ -3,7 +3,7 @@ use lox_shared::error::LoxError;
 use crate::{
     ast::{Attribute, BinOp, Expr, ExprKind, Group, Ident, Literal, LogicOp, NodeId, UnaryOp},
     parser::{
-        Parser,
+        Parser, syntax_error,
         token::{ReservedWord, Token, TokenKind},
     },
     span::Span,
@@ -44,7 +44,7 @@ impl Parser {
                     self.bump();
                     if let Some(Expr {
                         kind: ExprKind::Variable(last),
-                        attr: _,
+                        ..
                     }) = inputs.pop()
                     {
                         inputs.push(self.parse_method_call(last, span.clone())?);
@@ -73,7 +73,13 @@ impl Parser {
             Expr::new(ExprKind::Literal(literal), attr)
         } else if let Some(op) = UnaryOp::from_token(&current) {
             self.bump();
-            Expr::new(ExprKind::Unary(op, Box::new(self.parse_expr(9)?)), attr)
+            Expr::new(
+                ExprKind::Unary(
+                    op,
+                    Box::new(self.parse_expr(BindingOp::unary_binding_power())?),
+                ),
+                attr,
+            )
         } else {
             match current.kind() {
                 TokenKind::LeftParen => {
@@ -128,23 +134,41 @@ impl Parser {
                 TokenKind::Identifier(ident) => {
                     let ident = Ident(ident.clone());
                     let next = self.look_ahead(1);
-                    if next == TokenKind::Equal {
-                        self.bump();
-                        self.bump();
-                        Expr::new(
-                            ExprKind::UpdateVar(ident.clone(), Box::new(self.parse_expr(0)?)),
-                            attr,
-                        )
-                    } else if next == TokenKind::LeftParen {
-                        self.bump();
-                        self.parse_method_call(ident, attr.span().clone())?
-                    } else {
-                        // if var_init {
-                        //     return Err(LoxError::Syntax(
-                        //         "Cannot initialise vars to the value of another var".to_string(),
+                    match next.kind() {
+                        TokenKind::Equal => {
+                            self.bump();
+                            self.bump();
+                            Expr::new(
+                                ExprKind::UpdateVar(ident.clone(), Box::new(self.parse_expr(0)?)),
+                                attr,
+                            )
+                        }
+                        TokenKind::LeftParen => {
+                            self.bump();
+                            self.parse_method_call(ident, attr.span().clone())?
+                        }
+                        // TokenKind::Dot => {
+                        //     let expr = Box::new(Expr::new(
+                        //         ExprKind::Variable(ident),
+                        //         self.generate_attr(),
                         //     ));
+                        //     self.bump();
+                        //     self.bump();
+                        //     let kind = match self.parse_expr(0)?.kind() {
+                        //         ExprKind::Variable(prop) => ExprKind::Get(expr, prop.clone()),
+                        //         ExprKind::UpdateVar(prop, sub_expr) => {
+                        //             ExprKind::Set(expr, prop.clone(), sub_expr.clone())
+                        //         }
+                        //         _ => {
+                        //             return Err(LoxError::Syntax(format!(
+                        //                 "{}; Incorrect syntax for dot notation",
+                        //                 attr.as_display()
+                        //             )));
+                        //         }
+                        //     };
+                        //     Expr::new(kind, attr)
                         // }
-                        Expr::new(ExprKind::Variable(ident), attr)
+                        _ => Expr::new(ExprKind::Variable(ident), attr),
                     }
                 }
                 _ => {
@@ -158,25 +182,7 @@ impl Parser {
 
         loop {
             let next = self.look_ahead(1);
-
-            // if let Some(op) = LogicOp::from_token(&next) {
-            //     self.bump();
-            //     self.bump();
-            //     let rhs = self.parse_expr(0)?;
-            //     lhs = Expr::Conditional(op, Box::new(lhs), Box::new(rhs));
-            // } else if let Some(op) = BinOp::from_token(&next) {
-            //     let (l_bp, r_bp) = op.infix_binding_power();
-            //     if l_bp < min_bp {
-            //         break;
-            //     }
-
-            //     self.bump(); // Bump past op
-            //     self.bump(); // Bump to update current token for parse
-
-            //     let rhs = self.parse_expr(r_bp)?;
-            //     lhs = Expr::Arithmetic(op, Box::new(lhs), Box::new(rhs));
-            // }
-            if let Some(op) = InfixOp::from_token(&next) {
+            if let Some(op) = BindingOp::from_token(&next) {
                 let (l_bp, r_bp) = op.infix_binding_power();
                 if l_bp < min_bp {
                     break;
@@ -186,7 +192,7 @@ impl Parser {
                 self.bump(); // Bump to update current token for parse
 
                 let rhs = self.parse_expr(r_bp)?;
-                lhs = op.create_expression(lhs, rhs, self.new_node_id());
+                lhs = op.create_expression(lhs, rhs, self.new_node_id())?;
             } else if matches!(
                 next.kind(),
                 TokenKind::EOF | TokenKind::RightParen | TokenKind::Semicolon | TokenKind::Comma
@@ -200,29 +206,61 @@ impl Parser {
     }
 }
 
-pub enum InfixOp {
+pub enum BindingOp {
     Bin(BinOp),
     Logic(LogicOp),
+    Dot,
 }
 
-impl InfixBindingPower for InfixOp {
+impl BindingOp {
     fn infix_binding_power(&self) -> (u8, u8) {
+        use BinOp::*;
         match self {
-            InfixOp::Bin(bin_op) => bin_op.infix_binding_power(),
-            InfixOp::Logic(logic_op) => logic_op.infix_binding_power(),
+            BindingOp::Logic(LogicOp::Or | LogicOp::And) => (1, 2),
+            BindingOp::Bin(Lt | Le | Gt | Ge | Eq | Ne) => (3, 4),
+            BindingOp::Bin(Add | Sub) => (5, 6),
+            BindingOp::Bin(Mul | Div) => (7, 8),
+            BindingOp::Dot => (10, 9),
         }
     }
-
-    fn create_expression(&self, left: Expr, right: Expr, id: NodeId) -> Expr {
+    fn create_expression(&self, left: Expr, right: Expr, id: NodeId) -> Result<Expr, LoxError> {
+        let attr = Attribute::new(id, left.attr().span().clone());
         match self {
-            InfixOp::Bin(bin_op) => bin_op.create_expression(left, right, id),
-            InfixOp::Logic(logic_op) => logic_op.create_expression(left, right, id),
+            BindingOp::Bin(op) => Ok(Expr::new(
+                ExprKind::Arithmetic(op.clone(), Box::new(left), Box::new(right)),
+                attr,
+            )),
+            BindingOp::Logic(op) => Ok(Expr::new(
+                ExprKind::Conditional(op.clone(), Box::new(left), Box::new(right)),
+                attr,
+            )),
+            BindingOp::Dot => {
+                if matches!(left.kind(), ExprKind::Variable(_)) {
+                    match right.kind {
+                        ExprKind::Variable(prop) => {
+                            Ok(Expr::new(ExprKind::Get(Box::new(left), prop), attr))
+                        }
+                        ExprKind::UpdateVar(prop, expr) => {
+                            Ok(Expr::new(ExprKind::Set(Box::new(left), prop, expr), attr))
+                        }
+                        _ => Err(syntax_error(&attr, "Incorrect dot notation syntax")),
+                    }
+                } else {
+                    Err(syntax_error(&attr, "Incorrect dot notation syntax"))
+                }
+            }
         }
+    }
+    fn unary_binding_power() -> u8 {
+        11
     }
 }
 
-impl ExprOp for InfixOp {
+impl ExprOp for BindingOp {
     fn from_token(token: &Token) -> Option<Self> {
+        if token == &TokenKind::Dot {
+            return Some(Self::Dot);
+        }
         let mut res = BinOp::from_token(token).map(Self::Bin);
         if res.is_none() {
             res = LogicOp::from_token(token).map(Self::Logic);
@@ -231,42 +269,6 @@ impl ExprOp for InfixOp {
     }
 }
 
-trait InfixBindingPower {
-    fn infix_binding_power(&self) -> (u8, u8);
-    fn create_expression(&self, left: Expr, right: Expr, id: NodeId) -> Expr;
-}
-
-impl InfixBindingPower for BinOp {
-    fn infix_binding_power(&self) -> (u8, u8) {
-        use BinOp::*;
-        match self {
-            Lt | Le | Gt | Ge | Eq | Ne => (3, 4),
-            Add | Sub => (5, 6),
-            Mul | Div => (7, 8),
-        }
-    }
-
-    fn create_expression(&self, left: Expr, right: Expr, id: NodeId) -> Expr {
-        let attr = Attribute::new(id, left.attr().span().clone());
-        Expr::new(
-            ExprKind::Arithmetic(self.clone(), Box::new(left.clone()), Box::new(right)),
-            attr,
-        )
-    }
-}
-
-impl InfixBindingPower for LogicOp {
-    fn infix_binding_power(&self) -> (u8, u8) {
-        (1, 2)
-    }
-    fn create_expression(&self, left: Expr, right: Expr, id: NodeId) -> Expr {
-        let attr = Attribute::new(id, left.attr().span().clone());
-        Expr::new(
-            ExprKind::Conditional(self.clone(), Box::new(left), Box::new(right)),
-            attr,
-        )
-    }
-}
 trait ExprOp: Sized {
     fn from_token(token: &Token) -> Option<Self>;
 }

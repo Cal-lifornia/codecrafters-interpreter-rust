@@ -3,7 +3,7 @@ use std::{cell::RefCell, fmt::Display, rc::Rc};
 use hashbrown::HashMap;
 use lox_ast::ast::Ident;
 
-use crate::Value;
+use crate::value::Value;
 
 type ScopeCell = Rc<RefCell<Scope>>;
 
@@ -81,6 +81,28 @@ impl Environment {
             )
         }
     }
+    // pub fn update_class_instance(
+    //     &mut self,
+    //     ident: &Ident,
+    //     dist: usize,
+    //     prop: Ident,
+    //     val: Value,
+    // ) -> Option<()> {
+    //     if let Some(scope) = self.stack.get(self.stack.len() - 1 - dist) {
+    //         if let Some(Value::ClassInst(inst)) = scope.borrow_mut().get_mut(ident) {
+    //             inst.properties.insert(prop, val);
+    //             Some(())
+    //         } else {
+    //             None
+    //         }
+    //     } else {
+    //         panic!(
+    //             "attempted to access out of bounds index scope while accessing {ident} at dist {dist} with stack len {}",
+    //             self.stack.len()
+    //         )
+    //     }
+    // }
+
     pub fn debug_display(&self) -> impl Display {
         let mut out = String::new();
         for (idx, scope) in self.stack.iter().enumerate() {

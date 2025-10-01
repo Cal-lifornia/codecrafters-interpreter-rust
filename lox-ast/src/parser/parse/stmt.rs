@@ -1,7 +1,7 @@
 use lox_shared::error::LoxError;
 
 use crate::{
-    ast::{Attribute, Block, ControlFlowStmt, Expr, ExprKind, ForLoopArgs, Item, Stmt, StmtKind},
+    ast::{Attribute, Block, ControlFlowStmt, Expr, ExprKind, ForLoopArgs, Stmt, StmtKind},
     parser::{
         Parser,
         token::{ReservedWord, TokenKind},
@@ -97,7 +97,7 @@ impl Parser {
                 init.kind(),
                 StmtKind::Expr(Expr {
                     kind: ExprKind::InitVar(_, _) | ExprKind::UpdateVar(_, _),
-                    attr: _
+                    ..
                 })
             ) {
                 Some(init)

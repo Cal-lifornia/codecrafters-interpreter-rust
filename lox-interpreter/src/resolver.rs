@@ -154,49 +154,56 @@ impl Resolver {
 
     pub fn resolve_expr(&mut self, expr: &Expr) -> Result<(), LoxError> {
         match expr.kind() {
-            ExprKind::Literal(_) => Ok(()),
-            ExprKind::Group(group) => self.resolve_expr(&group.0),
-            ExprKind::Unary(_, expr) => self.resolve_expr(expr),
+            ExprKind::Literal(_) => {}
+            ExprKind::Group(group) => self.resolve_expr(&group.0)?,
+            ExprKind::Unary(_, expr) => self.resolve_expr(expr)?,
             ExprKind::Arithmetic(_, left, right) => {
                 self.resolve_expr(left)?;
-                self.resolve_expr(right)
+                self.resolve_expr(right)?;
             }
             ExprKind::Conditional(_, left, right) => {
                 self.resolve_expr(left)?;
-                self.resolve_expr(right)
+                self.resolve_expr(right)?;
             }
-            ExprKind::Variable(ident) => self.resolve_local(ident, expr.attr().id().clone()),
+            ExprKind::Variable(ident) => self.resolve_local(ident, expr.attr().id().clone())?,
             ExprKind::InitVar(ident, sub_expr) => {
                 self.declare(ident.clone())?;
                 self.resolve_expr(sub_expr)?;
                 self.define(ident.clone());
-                self.resolve_local(ident, expr.attr.id().clone())
+                self.resolve_local(ident, expr.attr().id().clone())?;
             }
             ExprKind::UpdateVar(ident, sub_expr) => {
                 self.resolve_local(ident, expr.attr().id().clone())?;
-                self.resolve_expr(sub_expr)
+                self.resolve_expr(sub_expr)?;
             }
-            ExprKind::Print(expr) => self.resolve_expr(expr),
+            ExprKind::Print(expr) => self.resolve_expr(expr)?,
             ExprKind::MethodCall(ident, exprs) => {
                 self.resolve_local(ident, expr.attr().id().clone())?;
                 for expr in exprs {
                     self.resolve_expr(expr)?;
                 }
-                Ok(())
+            }
+            ExprKind::Get(expr, _) => {
+                self.resolve_expr(expr)?;
+            }
+            ExprKind::Set(expr, _, sub_expr) => {
+                self.resolve_expr(expr)?;
+                self.resolve_expr(&sub_expr)?;
             }
             ExprKind::Return(opt) => {
                 if self.can_return {
                     match opt {
-                        Some(val) => self.resolve_expr(val),
-                        None => Ok(()),
+                        Some(val) => self.resolve_expr(val)?,
+                        None => {}
                     }
                 } else {
-                    Err(LoxError::Compile(format!(
+                    return Err(LoxError::Compile(format!(
                         "{}; Error at 'return': Can't return from non-function scopes",
                         expr.attr().as_display()
-                    )))
+                    )));
                 }
             }
         }
+        Ok(())
     }
 }
