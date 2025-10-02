@@ -235,11 +235,15 @@ impl BindingOp {
                 attr,
             )),
             BindingOp::Dot => {
-                if matches!(left.kind(), ExprKind::Variable(_)) {
+                if matches!(
+                    left.kind(),
+                    ExprKind::Variable(_) | ExprKind::MethodCall(_, _)
+                ) {
                     match right.kind {
-                        ExprKind::Variable(prop) => {
-                            Ok(Expr::new(ExprKind::Get(Box::new(left), prop), attr))
-                        }
+                        ExprKind::Variable(_) | ExprKind::MethodCall(_, _) => Ok(Expr::new(
+                            ExprKind::Get(Box::new(left), Box::new(right)),
+                            attr,
+                        )),
                         ExprKind::UpdateVar(prop, expr) => {
                             Ok(Expr::new(ExprKind::Set(Box::new(left), prop, expr), attr))
                         }

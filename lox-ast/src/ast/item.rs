@@ -56,9 +56,16 @@ impl Function {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Class {
     pub ident: Ident,
+    methods: Vec<Function>,
+}
+
+impl Class {
+    pub fn new(ident: Ident, methods: Vec<Function>) -> Self {
+        Self { ident, methods }
+    }
 }
 
 #[derive(Debug, Clone)]

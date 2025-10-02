@@ -7,14 +7,14 @@ use crate::value::Value;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ClassInstance {
-    class: Class,
+    ident: Ident,
     pub properties: HashMap<Ident, Value>,
 }
 
 impl ClassInstance {
     pub fn new(class: Class) -> Self {
         Self {
-            class,
+            ident: class.ident,
             properties: HashMap::new(),
         }
     }
@@ -22,6 +22,6 @@ impl ClassInstance {
 
 impl Display for ClassInstance {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{} instance", self.class.ident)
+        write!(f, "{} instance", self.ident)
     }
 }

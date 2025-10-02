@@ -22,10 +22,22 @@ impl Parser {
                 };
                 self.bump();
                 assert_eq!(self.current_token.kind(), &TokenKind::LeftBrace);
+                // Bumped past left brace for Class contents
                 self.bump();
+                let mut methods = Vec::new();
+                loop {
+                    if matches!(self.look_ahead(1).kind(), TokenKind::LeftParen)
+                        && matches!(self.current_token.kind(), TokenKind::Identifier(_))
+                    {
+                        methods.push(self.parse_function()?);
+                    } else if self.current_token == TokenKind::RightBrace {
+                        break;
+                    }
+                }
+
                 assert_eq!(self.current_token.kind(), &TokenKind::RightBrace);
                 self.bump();
-                Ok(Item::new(ItemKind::Class(Class { ident }), attr))
+                Ok(Item::new(ItemKind::Class(Class::new(ident, methods)), attr))
             }
             TokenKind::Reserved(ReservedWord::Fun) => {
                 self.bump();

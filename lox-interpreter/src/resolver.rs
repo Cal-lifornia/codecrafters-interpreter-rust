@@ -1,6 +1,6 @@
 use hashbrown::HashMap;
 use lox_ast::ast::{
-    Block, ControlFlowStmt, Expr, ExprKind, Ident, Item, ItemKind, NodeId, Stmt, StmtKind,
+    Block, ControlFlowStmt, Expr, ExprKind, Function, Ident, Item, ItemKind, NodeId, Stmt, StmtKind,
 };
 use lox_shared::error::LoxError;
 
@@ -109,23 +109,7 @@ impl Resolver {
 
     pub fn resolve_item(&mut self, item: &Item) -> Result<(), LoxError> {
         match item.kind() {
-            ItemKind::Fun(function) => {
-                let already_in_function = self.can_return;
-                self.declare(function.sig.ident.clone())?;
-                self.define(function.sig.ident.clone());
-                self.can_return = true;
-                self.enter_scope();
-                for input in function.sig.inputs.clone() {
-                    self.declare(input.clone())?;
-                    self.define(input.clone());
-                }
-                self.resolve_block(&function.body, true)?;
-                self.exit_scope();
-                if !already_in_function {
-                    self.can_return = false;
-                }
-                Ok(())
-            }
+            ItemKind::Fun(fun) => self.resolve_function(fun),
             ItemKind::Class(class) => {
                 let ident = &class.ident;
                 self.declare(ident.clone())?;
@@ -133,6 +117,24 @@ impl Resolver {
                 Ok(())
             }
         }
+    }
+
+    pub fn resolve_function(&mut self, fun: &Function) -> Result<(), LoxError> {
+        let already_in_function = self.can_return;
+        self.declare(fun.sig.ident.clone())?;
+        self.define(fun.sig.ident.clone());
+        self.can_return = true;
+        self.enter_scope();
+        for input in fun.sig.inputs.clone() {
+            self.declare(input.clone())?;
+            self.define(input.clone());
+        }
+        self.resolve_block(&fun.body, true)?;
+        self.exit_scope();
+        if !already_in_function {
+            self.can_return = false;
+        }
+        Ok(())
     }
 
     pub fn resolve_block(
@@ -188,13 +190,12 @@ impl Resolver {
             }
             ExprKind::Set(expr, _, sub_expr) => {
                 self.resolve_expr(expr)?;
-                self.resolve_expr(&sub_expr)?;
+                self.resolve_expr(sub_expr)?;
             }
             ExprKind::Return(opt) => {
                 if self.can_return {
-                    match opt {
-                        Some(val) => self.resolve_expr(val)?,
-                        None => {}
+                    if let Some(val) = opt {
+                        self.resolve_expr(val)?
                     }
                 } else {
                     return Err(LoxError::Compile(format!(
