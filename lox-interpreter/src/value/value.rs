@@ -5,10 +5,13 @@ use std::{
     rc::Rc,
 };
 
-use lox_ast::ast::{Class, Function};
+use lox_ast::ast::Function;
 use lox_shared::{SStr, error::LoxError};
 
-use crate::{environment::Environment, value::ClassInstance};
+use crate::{
+    environment::Environment,
+    value::{Class, ClassInstance},
+};
 
 #[derive(Debug, Clone)]
 pub enum Value {
@@ -57,7 +60,7 @@ impl Display for Value {
             // Self::Variable(val) => write!(f, "{val}"),
             Self::Return(val) => write!(f, "{val}"),
             Self::Method(fun, _) => write!(f, "<fn {}>", fun.sig.ident),
-            Self::Class(class) => write!(f, "{}", class.ident),
+            Self::Class(class) => write!(f, "{}", class),
             Self::ClassInst(class_inst) => write!(f, "{}", class_inst.borrow()),
         }
     }

@@ -22,7 +22,7 @@ use crate::{
 pub struct Interpreter {
     env: Environment,
     globals: HashMap<Ident, Value>,
-    locals: HashMap<NodeId, usize>,
+    pub locals: HashMap<NodeId, usize>,
     native_functions: HashMap<FunSig, Box<dyn NativeFunction>>,
 }
 
@@ -39,7 +39,6 @@ impl Interpreter {
                 ast.push(parser.parse_stmt()?);
             }
         }
-        let mut resolver = Resolver::default();
         self.native_functions = HashMap::new();
         self.native_functions.insert(
             FunSig {
@@ -49,10 +48,10 @@ impl Interpreter {
             Box::new(Clock {}),
         );
 
+        let mut resolver = Resolver::new(self);
         for stmt in ast.clone() {
             resolver.resolve_stmt(&stmt)?;
         }
-        self.locals = resolver.take_locals();
         for stmt in ast.clone() {
             self.evaluate_stmt(&stmt)?;
         }

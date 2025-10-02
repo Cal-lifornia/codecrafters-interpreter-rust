@@ -1,5 +1,3 @@
-use std::{cell::RefCell, rc::Rc};
-
 use lox_ast::ast::{BinOp, Expr, ExprKind, FunSig, Literal, LogicOp, UnaryOp};
 use lox_shared::error::LoxError;
 
@@ -157,9 +155,10 @@ impl Interpreter {
                         let vals = self.eval_method_params(args.to_vec())?;
                         self.run_function(&fun, closure.clone(), vals)
                     }
-                    Some(Value::Class(class)) => Ok(Some(Value::ClassInst(Rc::new(RefCell::new(
-                        ClassInstance::new(class.clone()),
-                    ))))),
+                    Some(Value::Class(class)) => {
+                        Ok(Some(Value::ClassInst(ClassInstance::new(class))))
+                    }
+
                     _ => {
                         let vals = self.eval_method_params(args.to_vec())?;
                         let res = self.run_native_func(&sig, vals);
@@ -180,10 +179,10 @@ impl Interpreter {
             ExprKind::Get(left, right) => {
                 if let Some(Value::ClassInst(inst)) = self.evaluate_expr(left)? {
                     match right.kind() {
-                        ExprKind::Variable(prop) => Ok(inst.borrow().properties.get(prop).cloned()),
+                        ExprKind::Variable(prop) => Ok(inst.borrow().get_property(prop)),
                         ExprKind::MethodCall(ident, args) => {
                             if let Some(Value::Method(fun, closure)) =
-                                inst.borrow().properties.get(ident)
+                                inst.borrow().get_property(ident)
                             {
                                 if fun.param_len() != args.len() {
                                     return Err(LoxError::Runtime(format!(
@@ -194,7 +193,7 @@ impl Interpreter {
                                     )));
                                 }
                                 let vals = self.eval_method_params(args.to_vec())?;
-                                self.run_function(fun, closure.clone(), vals)
+                                self.run_function(&fun, closure.clone(), vals)
                             } else {
                                 Err(runtime_err(
                                     right.attr(),

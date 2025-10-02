@@ -1,7 +1,7 @@
 use lox_shared::error::LoxError;
 
 use crate::{
-    ast::{Attribute, Class, FunSig, Function, Ident, Item, ItemKind},
+    ast::{Attribute, ClassItem, FunSig, Function, Ident, Item, ItemKind},
     parser::{
         Parser,
         token::{ReservedWord, TokenKind},
@@ -37,7 +37,10 @@ impl Parser {
 
                 assert_eq!(self.current_token.kind(), &TokenKind::RightBrace);
                 self.bump();
-                Ok(Item::new(ItemKind::Class(Class::new(ident, methods)), attr))
+                Ok(Item::new(
+                    ItemKind::Class(ClassItem::new(ident, methods)),
+                    attr,
+                ))
             }
             TokenKind::Reserved(ReservedWord::Fun) => {
                 self.bump();

@@ -147,27 +147,6 @@ impl Parser {
                             self.bump();
                             self.parse_method_call(ident, attr.span().clone())?
                         }
-                        // TokenKind::Dot => {
-                        //     let expr = Box::new(Expr::new(
-                        //         ExprKind::Variable(ident),
-                        //         self.generate_attr(),
-                        //     ));
-                        //     self.bump();
-                        //     self.bump();
-                        //     let kind = match self.parse_expr(0)?.kind() {
-                        //         ExprKind::Variable(prop) => ExprKind::Get(expr, prop.clone()),
-                        //         ExprKind::UpdateVar(prop, sub_expr) => {
-                        //             ExprKind::Set(expr, prop.clone(), sub_expr.clone())
-                        //         }
-                        //         _ => {
-                        //             return Err(LoxError::Syntax(format!(
-                        //                 "{}; Incorrect syntax for dot notation",
-                        //                 attr.as_display()
-                        //             )));
-                        //         }
-                        //     };
-                        //     Expr::new(kind, attr)
-                        // }
                         _ => Expr::new(ExprKind::Variable(ident), attr),
                     }
                 }

@@ -35,7 +35,7 @@ impl Item {
 #[derive(Debug, Clone, PartialEq)]
 pub enum ItemKind {
     Fun(Function),
-    Class(Class),
+    Class(ClassItem),
 }
 
 #[derive(Debug, Clone)]
@@ -57,12 +57,12 @@ impl Function {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct Class {
+pub struct ClassItem {
     pub ident: Ident,
-    methods: Vec<Function>,
+    pub methods: Vec<Function>,
 }
 
-impl Class {
+impl ClassItem {
     pub fn new(ident: Ident, methods: Vec<Function>) -> Self {
         Self { ident, methods }
     }

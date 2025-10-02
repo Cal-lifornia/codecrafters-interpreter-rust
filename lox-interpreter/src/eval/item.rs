@@ -1,7 +1,12 @@
 use lox_ast::ast::{Function, Item, ItemKind};
 use lox_shared::error::LoxError;
 
-use crate::{Interpreter, environment::Environment, eval::EvalResult, value::Value};
+use crate::{
+    Interpreter,
+    environment::Environment,
+    eval::EvalResult,
+    value::{Class, Value},
+};
 
 impl Interpreter {
     pub fn evaluate_item(&mut self, item: &Item) -> Result<(), LoxError> {
@@ -14,8 +19,9 @@ impl Interpreter {
                 );
                 Ok(())
             }
-            ItemKind::Class(class) => {
-                self.insert(class.ident.clone(), Value::Class(class.clone()));
+            ItemKind::Class(class_item) => {
+                let class = Class::new(self, class_item);
+                self.insert(class_item.ident.clone(), Value::Class(class));
                 Ok(())
             }
         }

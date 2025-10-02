@@ -4,17 +4,25 @@ use lox_ast::ast::{
 };
 use lox_shared::error::LoxError;
 
-#[derive(Default)]
-pub struct Resolver {
+use crate::Interpreter;
+
+pub struct Resolver<'a> {
+    interpreter: &'a mut Interpreter,
     pub scopes: Vec<HashMap<Ident, bool>>,
-    locals: HashMap<NodeId, usize>,
     can_return: bool,
 }
 
-impl Resolver {
-    pub fn take_locals(&mut self) -> HashMap<NodeId, usize> {
-        std::mem::take(&mut self.locals)
+impl<'a> Resolver<'a> {
+    pub fn new(interpreter: &'a mut Interpreter) -> Self {
+        Self {
+            interpreter,
+            scopes: vec![],
+            can_return: false,
+        }
     }
+}
+
+impl<'a> Resolver<'a> {
     pub fn enter_scope(&mut self) {
         self.scopes.push(HashMap::new());
     }
@@ -35,7 +43,7 @@ impl Resolver {
                     #[cfg(debug_assertions)]
                     println!("inserted {ident} with id {id} with scope num {idx}",);
 
-                    self.locals.insert(id, idx);
+                    self.interpreter.locals.insert(id, idx);
                     break;
                 }
                 None => {
@@ -114,6 +122,9 @@ impl Resolver {
                 let ident = &class.ident;
                 self.declare(ident.clone())?;
                 self.define(ident.clone());
+                for fun in &class.methods {
+                    self.resolve_function(fun)?;
+                }
                 Ok(())
             }
         }
@@ -185,8 +196,9 @@ impl Resolver {
                     self.resolve_expr(expr)?;
                 }
             }
-            ExprKind::Get(expr, _) => {
-                self.resolve_expr(expr)?;
+            ExprKind::Get(left, right) => {
+                self.resolve_expr(left)?;
+                self.resolve_expr(right)?;
             }
             ExprKind::Set(expr, _, sub_expr) => {
                 self.resolve_expr(expr)?;
