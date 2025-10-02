@@ -9,7 +9,8 @@ use crate::Interpreter;
 pub struct Resolver<'a> {
     interpreter: &'a mut Interpreter,
     pub scopes: Vec<HashMap<Ident, bool>>,
-    can_return: bool,
+    within_function: bool,
+    in_class: Option<Ident>,
 }
 
 impl<'a> Resolver<'a> {
@@ -17,7 +18,8 @@ impl<'a> Resolver<'a> {
         Self {
             interpreter,
             scopes: vec![],
-            can_return: false,
+            within_function: false,
+            in_class: None,
         }
     }
 }
@@ -122,19 +124,21 @@ impl<'a> Resolver<'a> {
                 let ident = &class.ident;
                 self.declare(ident.clone())?;
                 self.define(ident.clone());
+                self.in_class = Some(ident.clone());
                 for fun in &class.methods {
                     self.resolve_function(fun)?;
                 }
+                self.in_class = None;
                 Ok(())
             }
         }
     }
 
     pub fn resolve_function(&mut self, fun: &Function) -> Result<(), LoxError> {
-        let already_in_function = self.can_return;
+        let already_in_function = self.within_function;
         self.declare(fun.sig.ident.clone())?;
         self.define(fun.sig.ident.clone());
-        self.can_return = true;
+        self.within_function = true;
         self.enter_scope();
         for input in fun.sig.inputs.clone() {
             self.declare(input.clone())?;
@@ -143,7 +147,7 @@ impl<'a> Resolver<'a> {
         self.resolve_block(&fun.body, true)?;
         self.exit_scope();
         if !already_in_function {
-            self.can_return = false;
+            self.within_function = false;
         }
         Ok(())
     }
@@ -178,7 +182,22 @@ impl<'a> Resolver<'a> {
                 self.resolve_expr(left)?;
                 self.resolve_expr(right)?;
             }
-            ExprKind::Variable(ident) => self.resolve_local(ident, expr.attr().id().clone())?,
+            ExprKind::Variable(ident) => {
+                if ident.0 == "this" {
+                    if let Some(class) = self.in_class.clone()
+                        && self.within_function
+                    {
+                        self.resolve_local(&class, expr.attr().id().clone())?;
+                    } else {
+                        return Err(LoxError::Compile(format!(
+                            "{}; keyword 'this' can only be used within class methods",
+                            expr.attr().as_display()
+                        )));
+                    }
+                } else {
+                    self.resolve_local(ident, expr.attr().id().clone())?
+                }
+            }
             ExprKind::InitVar(ident, sub_expr) => {
                 self.declare(ident.clone())?;
                 self.resolve_expr(sub_expr)?;
@@ -205,7 +224,7 @@ impl<'a> Resolver<'a> {
                 self.resolve_expr(sub_expr)?;
             }
             ExprKind::Return(opt) => {
-                if self.can_return {
+                if self.within_function {
                     if let Some(val) = opt {
                         self.resolve_expr(val)?
                     }

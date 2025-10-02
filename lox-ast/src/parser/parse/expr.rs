@@ -24,14 +24,23 @@ impl Parser {
         }
     }
 
-    pub fn parse_method_call(&mut self, ident: Ident, span: Span) -> Result<Expr, LoxError> {
+    pub fn parse_method_call(&mut self, expr: Expr) -> Result<Expr, LoxError> {
         assert_eq!(self.current_token, TokenKind::LeftParen);
         self.bump();
 
         let mut inputs: Vec<Expr> = vec![];
-        loop {
+        let out: Expr = loop {
             if self.current_token == TokenKind::RightParen {
-                break;
+                let expr = Expr::new(
+                    ExprKind::MethodCall(Box::new(expr.clone()), inputs),
+                    expr.clone().attr().clone(),
+                );
+                if self.look_ahead(1) == TokenKind::LeftParen {
+                    self.bump();
+                    break self.parse_method_call(expr)?;
+                } else {
+                    break expr;
+                }
             }
             inputs.push(self.parse_expr(0)?);
             self.bump();
@@ -42,26 +51,18 @@ impl Parser {
                 let next = self.look_ahead(1);
                 if next == TokenKind::LeftParen {
                     self.bump();
-                    if let Some(Expr {
-                        kind: ExprKind::Variable(last),
-                        ..
-                    }) = inputs.pop()
+                    if let Some(last) = inputs.pop()
+                        && matches!(last.kind(), ExprKind::Variable(_))
                     {
-                        inputs.push(self.parse_method_call(last, span.clone())?);
-                        break;
+                        inputs.push(self.parse_method_call(last)?);
                     } else {
                         return Err(LoxError::Syntax("Invalid expr".into()));
                     }
-                } else {
-                    break;
                 }
             }
-        }
+        };
         assert_eq!(self.current_token, TokenKind::RightParen);
-        Ok(Expr::new(
-            ExprKind::MethodCall(ident, inputs),
-            Attribute::new(self.new_node_id(), span),
-        ))
+        Ok(out)
     }
 
     pub fn parse_expr(&mut self, min_bp: u8) -> Result<Expr, LoxError> {
@@ -129,6 +130,10 @@ impl Parser {
                             Expr::new(ExprKind::Return(Some(Box::new(self.parse_expr(0)?))), attr)
                         }
                     }
+                    ReservedWord::This => Expr::new(
+                        ExprKind::Variable(Ident(std::borrow::Cow::Borrowed("this"))),
+                        attr,
+                    ),
                     _ => todo!(),
                 },
                 TokenKind::Identifier(ident) => {
@@ -151,10 +156,10 @@ impl Parser {
                     }
                 }
                 _ => {
-                    return Err(LoxError::Syntax(format!(
-                        "invalid token: {}",
-                        current.clone()
-                    )));
+                    return Err(syntax_error(
+                        &self.generate_attr(),
+                        format!("invalid token: {}", current.clone()),
+                    ));
                 }
             }
         };
@@ -178,7 +183,7 @@ impl Parser {
             ) {
                 break;
             } else {
-                return Err(LoxError::Runtime(format!("invalid token: {}", next)));
+                return Err(syntax_error(lhs.attr(), format!("invalid token: {}", next)));
             }
         }
         Ok(lhs)

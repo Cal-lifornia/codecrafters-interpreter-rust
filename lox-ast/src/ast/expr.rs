@@ -54,7 +54,7 @@ pub enum ExprKind {
     InitVar(Ident, Box<Expr>),
     UpdateVar(Ident, Box<Expr>),
     Print(Box<Expr>),
-    MethodCall(Ident, Vec<Expr>),
+    MethodCall(Box<Expr>, Vec<Expr>),
     Get(Box<Expr>, Box<Expr>),
     Set(Box<Expr>, Ident, Box<Expr>),
     Return(Option<Box<Expr>>),

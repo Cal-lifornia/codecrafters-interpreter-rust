@@ -5,6 +5,7 @@ use lox_shared::error::LoxError;
 use crate::{
     ast::{Attribute, NodeId},
     parser::token::{Token, TokenCursor, TokenStream, TokenTree, TokenTreeCursor},
+    span::{self, Span},
 };
 
 pub struct Parser {
@@ -84,4 +85,8 @@ impl Parser {
 
 pub(crate) fn syntax_error(attr: &Attribute, out: impl Display) -> LoxError {
     LoxError::Syntax(format!("{}; {out}", attr.as_display()))
+}
+
+pub(crate) fn parse_error(span: &Span, out: impl Display) -> LoxError {
+    LoxError::Syntax(format!("{span}; {out}"))
 }

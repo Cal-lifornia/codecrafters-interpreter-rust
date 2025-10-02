@@ -2,7 +2,7 @@ use std::fmt::{Display, Write};
 
 use hashbrown::HashMap;
 use lox_ast::{
-    ast::{Attribute, FunSig, Ident, NodeId},
+    ast::{Attribute, Expr, FunSig, Ident, NodeId},
     parser::{
         Parser,
         token::{Lexer, TokenKind, generate_token_stream},
@@ -15,7 +15,7 @@ use crate::{
     environment::Environment,
     eval::EvalResult,
     std_lib::{Clock, NativeFunction},
-    value::Value,
+    value::{ClassInstance, Value},
 };
 
 #[derive(Default)]
@@ -24,6 +24,8 @@ pub struct Interpreter {
     globals: HashMap<Ident, Value>,
     pub locals: HashMap<NodeId, usize>,
     native_functions: HashMap<FunSig, Box<dyn NativeFunction>>,
+    within_class: Option<Expr>,
+    pub this: Option<ClassInstance>,
 }
 
 impl Interpreter {
@@ -56,6 +58,18 @@ impl Interpreter {
             self.evaluate_stmt(&stmt)?;
         }
         Ok(())
+    }
+
+    pub fn within_class(&self) -> &Option<Expr> {
+        &self.within_class
+    }
+
+    pub fn enter_class(&mut self, class: Option<Expr>) -> Option<Expr> {
+        std::mem::replace(&mut self.within_class, class)
+    }
+
+    pub fn exit_class(&mut self, prev: Option<Expr>) {
+        self.within_class = prev;
     }
 
     pub fn enter_scope(&mut self) {

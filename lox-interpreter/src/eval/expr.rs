@@ -93,18 +93,31 @@ impl Interpreter {
                     Ok(Some(Value::Boolean(false)))
                 }
             },
-            ExprKind::Variable(ident) => match self.find(ident, expr.attr().id()) {
-                Some(val) => Ok(Some(val)),
-                None => {
-                    #[cfg(debug_assertions)]
-                    eprintln!("'current stack'\n{}", self.debug_display());
+            ExprKind::Variable(ident) => {
+                if ident.0 == "this" {
+                    if let Some(inst) = &self.this {
+                        Ok(Some(Value::ClassInst(inst.clone())))
+                    } else {
+                        Err(runtime_err(
+                            expr.attr(),
+                            "Cannot use this outside of a class method",
+                        ))
+                    }
+                } else {
+                    match self.find(ident, expr.attr().id()) {
+                        Some(val) => Ok(Some(val)),
+                        None => {
+                            #[cfg(debug_assertions)]
+                            eprintln!("'current stack'\n{}", self.debug_display());
 
-                    Err(LoxError::Runtime(format!(
-                        "{}; Undefined variable '{ident}'",
-                        expr.attr().as_display()
-                    )))
+                            Err(LoxError::Runtime(format!(
+                                "{}; Undefined variable '{ident}'",
+                                expr.attr().as_display()
+                            )))
+                        }
+                    }
                 }
-            },
+            }
             ExprKind::InitVar(ident, expr) => {
                 if let Some(value) = self.evaluate_expr(expr)? {
                     self.insert(ident.clone(), value.clone());
@@ -152,7 +165,7 @@ impl Interpreter {
                                 args.len()
                             )));
                         }
-                        let vals = self.eval_method_params(args.to_vec())?;
+                        let vals = self.eval_function_params(args.to_vec())?;
                         self.run_function(&fun, closure.clone(), vals)
                     }
                     Some(Value::Class(class)) => {
@@ -160,7 +173,7 @@ impl Interpreter {
                     }
 
                     _ => {
-                        let vals = self.eval_method_params(args.to_vec())?;
+                        let vals = self.eval_function_params(args.to_vec())?;
                         let res = self.run_native_func(&sig, vals);
                         if res.is_err() {
                             #[cfg(debug_assertions)]
@@ -179,27 +192,27 @@ impl Interpreter {
             ExprKind::Get(left, right) => {
                 if let Some(Value::ClassInst(inst)) = self.evaluate_expr(left)? {
                     match right.kind() {
-                        ExprKind::Variable(prop) => Ok(inst.borrow().get_property(prop)),
+                        ExprKind::Variable(prop) => {
+                            let res = inst.class().borrow().properties.get(prop).cloned();
+                            if res.is_none() {
+                                Ok(inst.class().borrow().get_method(prop).map(|method| {
+                                    let mut method = method.clone();
+                                    method.this = Some(inst);
+                                    Value::ClassMethod(method)
+                                }))
+                            } else {
+                                Ok(res)
+                            }
+                        }
                         ExprKind::MethodCall(ident, args) => {
-                            if let Some(Value::Method(fun, closure)) =
-                                inst.borrow().get_property(ident)
-                            {
-                                if fun.param_len() != args.len() {
-                                    return Err(LoxError::Runtime(format!(
-                                        "Fun {} expects {} args, got {}",
-                                        fun.sig.ident,
-                                        fun.param_len(),
-                                        args.len()
-                                    )));
-                                }
-                                let vals = self.eval_method_params(args.to_vec())?;
-                                self.run_function(&fun, closure.clone(), vals)
+                            if let Some(method) = inst.class().borrow().get_method(ident) {
+                                self.run_method(&inst, method, args)
                             } else {
                                 Err(runtime_err(
                                     right.attr(),
                                     format!(
                                         "Could not find method named {ident} on class {}",
-                                        inst.borrow()
+                                        inst.class().borrow().ident()
                                     ),
                                 ))
                             }
@@ -220,7 +233,7 @@ impl Interpreter {
                 if let Some(val) = self.evaluate_expr(sub_expr)? {
                     let ret = self.evaluate_expr(expr)?;
                     if let Some(Value::ClassInst(inst)) = ret {
-                        inst.borrow_mut().properties.insert(prop.clone(), val);
+                        inst.class().borrow_mut().set(prop, val)?;
                         Ok(None)
                     } else {
                         Err(LoxError::Runtime(format!(
@@ -242,18 +255,5 @@ impl Interpreter {
                 None => Ok(Some(Value::Return(Box::new(Value::Nil)))),
             },
         }
-    }
-    fn eval_method_params(&mut self, args: Vec<Expr>) -> Result<Vec<Value>, LoxError> {
-        let mut vals = vec![];
-        for arg in args.iter() {
-            if let Some(val) = self.evaluate_expr(arg)? {
-                vals.push(val);
-            } else {
-                return Err(LoxError::Syntax(
-                    "Can't use empty statement as parameter".into(),
-                ));
-            }
-        }
-        Ok(vals)
     }
 }

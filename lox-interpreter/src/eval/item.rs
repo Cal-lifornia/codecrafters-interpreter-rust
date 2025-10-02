@@ -1,4 +1,4 @@
-use lox_ast::ast::{Function, Item, ItemKind};
+use lox_ast::ast::{Expr, Function, Item, ItemKind};
 use lox_shared::error::LoxError;
 
 use crate::{
@@ -45,5 +45,18 @@ impl Interpreter {
             .map(|val| val.map(|lox| lox.into_inner().clone()));
         self.exit_closure(current_env);
         res
+    }
+    pub fn eval_function_params(&mut self, args: Vec<Expr>) -> Result<Vec<Value>, LoxError> {
+        let mut vals = vec![];
+        for arg in args.iter() {
+            if let Some(val) = self.evaluate_expr(arg)? {
+                vals.push(val);
+            } else {
+                return Err(LoxError::Syntax(
+                    "Can't use empty statement as parameter".into(),
+                ));
+            }
+        }
+        Ok(vals)
     }
 }
