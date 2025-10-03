@@ -6,7 +6,6 @@ use crate::{
         Parser, syntax_error,
         token::{ReservedWord, Token, TokenKind},
     },
-    span::Span,
 };
 
 impl Parser {
@@ -150,7 +149,7 @@ impl Parser {
                         }
                         TokenKind::LeftParen => {
                             self.bump();
-                            self.parse_method_call(ident, attr.span().clone())?
+                            self.parse_method_call(Expr::new(ExprKind::Variable(ident), attr))?
                         }
                         _ => Expr::new(ExprKind::Variable(ident), attr),
                     }

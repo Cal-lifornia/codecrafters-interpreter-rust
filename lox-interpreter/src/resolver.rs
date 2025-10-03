@@ -209,8 +209,8 @@ impl<'a> Resolver<'a> {
                 self.resolve_expr(sub_expr)?;
             }
             ExprKind::Print(expr) => self.resolve_expr(expr)?,
-            ExprKind::MethodCall(ident, exprs) => {
-                self.resolve_local(ident, expr.attr().id().clone())?;
+            ExprKind::MethodCall(expr, exprs) => {
+                self.resolve_expr(expr)?;
                 for expr in exprs {
                     self.resolve_expr(expr)?;
                 }

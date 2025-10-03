@@ -153,42 +153,44 @@ impl Interpreter {
                 }
                 Ok(None)
             }
-            ExprKind::MethodCall(ident, args) => {
-                let sig = FunSig::method_call(ident.clone(), args.len());
-                match self.find(ident, expr.attr().id()) {
-                    Some(Value::Method(fun, closure)) => {
-                        if fun.param_len() != args.len() {
-                            return Err(LoxError::Runtime(format!(
-                                "Fun {} expects {} args, got {}",
-                                fun.sig.ident,
-                                fun.param_len(),
-                                args.len()
-                            )));
-                        }
-                        let vals = self.eval_function_params(args.to_vec())?;
-                        self.run_function(&fun, closure.clone(), vals)
+            ExprKind::MethodCall(expr, args) => match self.evaluate_expr(expr)? {
+                Some(Value::Method(fun, closure)) => {
+                    if fun.param_len() != args.len() {
+                        return Err(LoxError::Runtime(format!(
+                            "Fun {} expects {} args, got {}",
+                            fun.sig.ident,
+                            fun.param_len(),
+                            args.len()
+                        )));
                     }
-                    Some(Value::Class(class)) => {
-                        Ok(Some(Value::ClassInst(ClassInstance::new(class))))
-                    }
+                    let vals = self.eval_function_params(args.to_vec())?;
+                    self.run_function(&fun, closure.clone(), vals)
+                }
+                Some(Value::Class(class)) => Ok(Some(Value::ClassInst(ClassInstance::new(class)))),
 
-                    _ => {
-                        let vals = self.eval_function_params(args.to_vec())?;
-                        let res = self.run_native_func(&sig, vals);
-                        if res.is_err() {
-                            #[cfg(debug_assertions)]
-                            eprintln!("'current stack'\n{}", self.debug_display());
+                _ => {
+                    let ExprKind::Variable(ident) = expr.kind() else {
+                        return Err(runtime_err(
+                            expr.attr(),
+                            "method call must be used with a variable",
+                        ));
+                    };
+                    let sig = FunSig::method_call(ident.clone(), args.len());
+                    let vals = self.eval_function_params(args.to_vec())?;
+                    let res = self.run_native_func(&sig, vals);
+                    if res.is_err() {
+                        #[cfg(debug_assertions)]
+                        eprintln!("'current stack'\n{}", self.debug_display());
 
-                            Err(LoxError::Runtime(format!(
-                                "{}; Cannot find method with name {ident}",
-                                expr.attr().as_display(),
-                            )))
-                        } else {
-                            res
-                        }
+                        Err(LoxError::Runtime(format!(
+                            "{}; Cannot find method {expr}",
+                            expr.attr().as_display(),
+                        )))
+                    } else {
+                        res
                     }
                 }
-            }
+            },
             ExprKind::Get(left, right) => {
                 if let Some(Value::ClassInst(inst)) = self.evaluate_expr(left)? {
                     match right.kind() {
@@ -204,18 +206,59 @@ impl Interpreter {
                                 Ok(res)
                             }
                         }
-                        ExprKind::MethodCall(ident, args) => {
-                            if let Some(method) = inst.class().borrow().get_method(ident) {
-                                self.run_method(&inst, method, args)
-                            } else {
-                                Err(runtime_err(
+                        ExprKind::MethodCall(expr, args) => {
+                            match expr.kind() {
+                                ExprKind::Variable(ident) => {
+                                    if let Some(method) = inst.class().borrow().get_method(ident) {
+                                        self.run_method(&inst, method, args)
+                                    } else {
+                                        Err(runtime_err(
+                                            right.attr(),
+                                            format!(
+                                                "Could not find method {ident} on class {}",
+                                                inst.class().borrow().ident()
+                                            ),
+                                        ))
+                                    }
+                                }
+                                ExprKind::MethodCall(sub_left, args) => {
+                                    let expr = Expr::new(
+                                        ExprKind::Get(left.clone(), sub_left.clone()),
+                                        sub_left.attr().clone(),
+                                    );
+                                    if let Some(Value::ClassMethod(method)) =
+                                        self.evaluate_expr(&expr)?
+                                    {
+                                        self.run_method(&inst, &method, args)
+                                    } else {
+                                        Err(runtime_err(
+                                            sub_left.attr(),
+                                            format!(
+                                                "Could not find method {expr} on class {}",
+                                                inst.class().borrow().ident()
+                                            ),
+                                        ))
+                                    }
+                                }
+                                _ => Err(runtime_err(
                                     right.attr(),
                                     format!(
-                                        "Could not find method named {ident} on class {}",
+                                        "Could not find method {expr} on class {}",
                                         inst.class().borrow().ident()
                                     ),
-                                ))
+                                )),
                             }
+                            // if let Some(Value::ClassMethod(method)) = self.evaluate_expr(expr)? {
+                            //     self.run_method(&inst, &method, args)
+                            // } else {
+                            //     Err(runtime_err(
+                            //         right.attr(),
+                            //         format!(
+                            //             "Could not find method {expr} on class {}",
+                            //             inst.class().borrow().ident()
+                            //         ),
+                            //     ))
+                            // }
                         }
                         _ => Err(runtime_err(
                             right.attr(),
