@@ -177,11 +177,16 @@ impl Interpreter {
                         ExprKind::Variable(prop) => {
                             let res = inst.class().borrow().properties.get(prop).cloned();
                             if res.is_none() {
-                                Ok(inst.class().borrow().get_method(prop).map(|method| {
-                                    let method = method.clone();
-                                    // method.this = Some(inst);
-                                    Value::Function(method)
-                                }))
+                                let res = inst
+                                    .class()
+                                    .borrow()
+                                    .get_method(prop)
+                                    .map(|method| Value::Function(method.clone()));
+                                if res.is_none() {
+                                    Err(runtime_err(right.attr(), "found no class property"))
+                                } else {
+                                    Ok(res)
+                                }
                             } else {
                                 Ok(res)
                             }
