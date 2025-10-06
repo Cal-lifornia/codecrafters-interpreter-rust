@@ -5,7 +5,6 @@ use lox_shared::error::LoxError;
 use crate::{
     ast::{Attribute, NodeId},
     parser::token::{Token, TokenCursor, TokenStream, TokenTree, TokenTreeCursor},
-    span::Span,
 };
 
 pub struct Parser {

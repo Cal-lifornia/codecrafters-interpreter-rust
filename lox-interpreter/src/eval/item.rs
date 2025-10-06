@@ -1,11 +1,10 @@
-use lox_ast::ast::{Expr, Function, Item, ItemKind};
+use lox_ast::ast::{Expr, Item, ItemKind};
 use lox_shared::error::LoxError;
 
 use crate::{
     Interpreter,
-    environment::Environment,
     eval::EvalResult,
-    value::{Class, Value},
+    value::{Class, Method, Value},
 };
 
 impl Interpreter {
@@ -15,33 +14,40 @@ impl Interpreter {
                 let closure = self.capture_env();
                 self.insert(
                     function.sig.ident.clone(),
-                    Value::Method(function.clone(), closure),
+                    Value::Function(Method::new(function.clone(), closure)),
                 );
                 Ok(())
             }
             ItemKind::Class(class_item) => {
-                let class = Class::new(self, class_item);
+                let class = Class::new(class_item);
                 self.insert(class_item.ident.clone(), Value::Class(class));
                 Ok(())
             }
         }
     }
 
-    pub fn run_function(
-        &mut self,
-        fun: &Function,
-        closure: Environment,
-        args: Vec<Value>,
-    ) -> EvalResult {
+    pub fn run_function(&mut self, method: &Method, args: &[Expr]) -> EvalResult {
+        tracing::debug!("running function: {method}");
+
+        if method.fun().param_len() != args.len() {
+            return Err(LoxError::Runtime(format!(
+                "Fun {} expects {} args, got {}",
+                method.fun().sig.ident,
+                method.fun().param_len(),
+                args.len()
+            )));
+        }
+
+        let vals = self.eval_function_params(args.to_vec())?;
         let current_env = self.capture_env();
-        self.enter_closure(closure);
-        args.iter()
-            .zip(fun.sig.inputs.iter())
+        self.enter_closure(method.closure().clone());
+        vals.iter()
+            .zip(method.fun().sig.inputs.iter())
             .for_each(|(arg, input)| {
                 self.insert(input.clone(), arg.clone());
             });
         let res = self
-            .evaluate_block(&fun.body, false)
+            .evaluate_block(&method.fun().body, false)
             .map(|val| val.map(|lox| lox.into_inner().clone()));
         self.exit_closure(current_env);
         res

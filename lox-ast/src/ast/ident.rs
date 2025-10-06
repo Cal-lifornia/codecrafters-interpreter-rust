@@ -22,3 +22,9 @@ impl Display for Ident {
         write!(f, "{}", self.0)
     }
 }
+
+impl From<SStr> for Ident {
+    fn from(value: SStr) -> Self {
+        Self(value)
+    }
+}

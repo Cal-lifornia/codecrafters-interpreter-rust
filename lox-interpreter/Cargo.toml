@@ -10,3 +10,4 @@ lox-ast = { path = "../lox-ast", version = "0.1.0" }
 # External
 bytes = { workspace = true }
 hashbrown = { workspace = true }
+tracing = { workspace = true }

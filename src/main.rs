@@ -9,6 +9,8 @@ use lox_ast::parser::token::TokenStream;
 use lox_ast::parser::Parser;
 use lox_interpreter::Interpreter;
 use lox_shared::error::LoxError;
+use tracing::Level;
+use tracing_subscriber::FmtSubscriber;
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -19,6 +21,20 @@ fn main() {
 
     let command = &args[1];
     let filename = &args[2];
+
+    let subscriber = if cfg!(debug_assertions) {
+        FmtSubscriber::builder()
+            .with_max_level(Level::DEBUG)
+            .with_file(true)
+            .with_line_number(true)
+            .finish()
+    } else {
+        FmtSubscriber::builder()
+            .with_max_level(Level::INFO)
+            .finish()
+    };
+
+    tracing::subscriber::set_global_default(subscriber).expect("setting default subscriber failed");
 
     if let Err(err) = run_interpreter(command, filename) {
         eprintln!("{err}");

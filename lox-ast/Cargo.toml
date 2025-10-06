@@ -8,3 +8,4 @@ lox-shared = { path = "../lox-shared", version = "0.1.0" }
 
 # External
 hashbrown = { workspace = true }
+tracing = { workspace = true }

@@ -2,7 +2,7 @@ use std::fmt::{Display, Write};
 
 use hashbrown::HashMap;
 use lox_ast::{
-    ast::{Attribute, Expr, FunSig, Ident, NodeId},
+    ast::{Attribute, Expr, Ident, NodeId},
     parser::{
         Parser,
         token::{Lexer, TokenKind, generate_token_stream},
@@ -13,7 +13,6 @@ use lox_shared::error::LoxError;
 use crate::{
     Resolver,
     environment::Environment,
-    eval::EvalResult,
     std_lib::{Clock, NativeFunction},
     value::{ClassInstance, Value},
 };
@@ -23,7 +22,7 @@ pub struct Interpreter {
     env: Environment,
     globals: HashMap<Ident, Value>,
     pub locals: HashMap<NodeId, usize>,
-    native_functions: HashMap<FunSig, Box<dyn NativeFunction>>,
+    pub(crate) native_functions: HashMap<Ident, Box<dyn NativeFunction>>,
     within_class: Option<Expr>,
     pub this: Option<ClassInstance>,
 }
@@ -42,13 +41,8 @@ impl Interpreter {
             }
         }
         self.native_functions = HashMap::new();
-        self.native_functions.insert(
-            FunSig {
-                ident: Ident("clock".into()),
-                inputs: vec![],
-            },
-            Box::new(Clock {}),
-        );
+        self.native_functions
+            .insert(Ident("clock".into()), Box::new(Clock {}));
 
         let mut resolver = Resolver::new(self);
         for stmt in ast.clone() {
@@ -107,14 +101,6 @@ impl Interpreter {
             self.env.find(ident, *dist)
         } else {
             self.globals.get(ident).cloned()
-        }
-    }
-
-    pub fn run_native_func(&self, fun_sig: &FunSig, vals: Vec<Value>) -> EvalResult {
-        if let Some(fun) = self.native_functions.get(fun_sig) {
-            fun.run(&vals)
-        } else {
-            Err(LoxError::Runtime("".into()))
         }
     }
 

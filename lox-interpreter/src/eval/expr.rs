@@ -1,4 +1,4 @@
-use lox_ast::ast::{BinOp, Expr, ExprKind, FunSig, Literal, LogicOp, UnaryOp};
+use lox_ast::ast::{BinOp, Expr, ExprKind, Literal, LogicOp, UnaryOp};
 use lox_shared::error::LoxError;
 
 use crate::{
@@ -57,7 +57,10 @@ impl Interpreter {
                         BinOp::Ne => Ok(Some(Value::Boolean(left_val != right_val))),
                     }
                 } else {
-                    Err(LoxError::Runtime("Can't evaluate empty expr".into()))
+                    Err(runtime_err(
+                        expr.attr(),
+                        format!("can't evaluate empty expression {expr}"),
+                    ))
                 }
             }
             ExprKind::Conditional(op, left, right) => match op {
@@ -93,31 +96,17 @@ impl Interpreter {
                     Ok(Some(Value::Boolean(false)))
                 }
             },
-            ExprKind::Variable(ident) => {
-                if ident.0 == "this" {
-                    if let Some(inst) = &self.this {
-                        Ok(Some(Value::ClassInst(inst.clone())))
-                    } else {
-                        Err(runtime_err(
-                            expr.attr(),
-                            "Cannot use this outside of a class method",
-                        ))
-                    }
-                } else {
-                    match self.find(ident, expr.attr().id()) {
-                        Some(val) => Ok(Some(val)),
-                        None => {
-                            #[cfg(debug_assertions)]
-                            eprintln!("'current stack'\n{}", self.debug_display());
+            ExprKind::Variable(ident) => match self.find(ident, expr.attr().id()) {
+                Some(val) => Ok(Some(val)),
+                None => {
+                    tracing::debug!("{}", self.debug_display());
 
-                            Err(LoxError::Runtime(format!(
-                                "{}; Undefined variable '{ident}'",
-                                expr.attr().as_display()
-                            )))
-                        }
-                    }
+                    Err(LoxError::Runtime(format!(
+                        "{}; Undefined variable '{ident}'",
+                        expr.attr().as_display()
+                    )))
                 }
-            }
+            },
             ExprKind::InitVar(ident, expr) => {
                 if let Some(value) = self.evaluate_expr(expr)? {
                     self.insert(ident.clone(), value.clone());
@@ -153,112 +142,59 @@ impl Interpreter {
                 }
                 Ok(None)
             }
-            ExprKind::MethodCall(expr, args) => match self.evaluate_expr(expr)? {
-                Some(Value::Method(fun, closure)) => {
-                    if fun.param_len() != args.len() {
-                        return Err(LoxError::Runtime(format!(
-                            "Fun {} expects {} args, got {}",
-                            fun.sig.ident,
-                            fun.param_len(),
-                            args.len()
-                        )));
-                    }
+            ExprKind::FunctionCall(expr, args) => {
+                if let ExprKind::Variable(ident) = expr.kind()
+                    && self.native_functions.contains_key(ident)
+                {
                     let vals = self.eval_function_params(args.to_vec())?;
-                    self.run_function(&fun, closure.clone(), vals)
-                }
-                Some(Value::Class(class)) => Ok(Some(Value::ClassInst(ClassInstance::new(class)))),
+                    self.native_functions.get(ident).unwrap().run(&vals)
+                } else {
+                    match self.evaluate_expr(expr)? {
+                        Some(Value::Function(method)) => self.run_function(&method, args),
+                        Some(Value::Class(class)) => Ok(Some(Value::ClassInst(
+                            ClassInstance::new(self.capture_env(), class),
+                        ))),
 
-                _ => {
-                    let ExprKind::Variable(ident) = expr.kind() else {
-                        return Err(runtime_err(
-                            expr.attr(),
-                            "method call must be used with a variable",
-                        ));
-                    };
-                    let sig = FunSig::method_call(ident.clone(), args.len());
-                    let vals = self.eval_function_params(args.to_vec())?;
-                    let res = self.run_native_func(&sig, vals);
-                    if res.is_err() {
-                        #[cfg(debug_assertions)]
-                        eprintln!("'current stack'\n{}", self.debug_display());
+                        out => {
+                            tracing::debug!("other function call {out:#?}");
 
-                        Err(LoxError::Runtime(format!(
-                            "{}; Cannot find method {expr}",
-                            expr.attr().as_display(),
-                        )))
-                    } else {
-                        res
+                            #[cfg(debug_assertions)]
+                            eprintln!("'current stack'\n{}", self.debug_display());
+
+                            Err(LoxError::Runtime(format!(
+                                "{}; Cannot find method {expr}",
+                                expr.attr().as_display(),
+                            )))
+                        }
                     }
                 }
-            },
+            }
             ExprKind::Get(left, right) => {
+                tracing::debug!("running get; left: {left}; right: {right}");
+
                 if let Some(Value::ClassInst(inst)) = self.evaluate_expr(left)? {
                     match right.kind() {
                         ExprKind::Variable(prop) => {
                             let res = inst.class().borrow().properties.get(prop).cloned();
                             if res.is_none() {
                                 Ok(inst.class().borrow().get_method(prop).map(|method| {
-                                    let mut method = method.clone();
-                                    method.this = Some(inst);
-                                    Value::ClassMethod(method)
+                                    let method = method.clone();
+                                    // method.this = Some(inst);
+                                    Value::Function(method)
                                 }))
                             } else {
                                 Ok(res)
                             }
                         }
-                        ExprKind::MethodCall(expr, args) => {
-                            match expr.kind() {
-                                ExprKind::Variable(ident) => {
-                                    if let Some(method) = inst.class().borrow().get_method(ident) {
-                                        self.run_method(&inst, method, args)
-                                    } else {
-                                        Err(runtime_err(
-                                            right.attr(),
-                                            format!(
-                                                "Could not find method {ident} on class {}",
-                                                inst.class().borrow().ident()
-                                            ),
-                                        ))
-                                    }
-                                }
-                                ExprKind::MethodCall(sub_left, args) => {
-                                    let expr = Expr::new(
-                                        ExprKind::Get(left.clone(), sub_left.clone()),
-                                        sub_left.attr().clone(),
-                                    );
-                                    if let Some(Value::ClassMethod(method)) =
-                                        self.evaluate_expr(&expr)?
-                                    {
-                                        self.run_method(&inst, &method, args)
-                                    } else {
-                                        Err(runtime_err(
-                                            sub_left.attr(),
-                                            format!(
-                                                "Could not find method {expr} on class {}",
-                                                inst.class().borrow().ident()
-                                            ),
-                                        ))
-                                    }
-                                }
-                                _ => Err(runtime_err(
+                        ExprKind::FunctionCall(expr, args) => {
+                            if let Some(Value::Function(method)) = self.evaluate_expr(expr)? {
+                                self.run_function(&method, args)
+                            } else {
+                                Err(runtime_err(
                                     right.attr(),
-                                    format!(
-                                        "Could not find method {expr} on class {}",
-                                        inst.class().borrow().ident()
-                                    ),
-                                )),
+                                    format!("Expected property or method call: got {right}"),
+                                ))
                             }
-                            // if let Some(Value::ClassMethod(method)) = self.evaluate_expr(expr)? {
-                            //     self.run_method(&inst, &method, args)
-                            // } else {
-                            //     Err(runtime_err(
-                            //         right.attr(),
-                            //         format!(
-                            //             "Could not find method {expr} on class {}",
-                            //             inst.class().borrow().ident()
-                            //         ),
-                            //     ))
-                            // }
                         }
                         _ => Err(runtime_err(
                             right.attr(),

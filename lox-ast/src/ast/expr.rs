@@ -54,7 +54,7 @@ pub enum ExprKind {
     InitVar(Ident, Box<Expr>),
     UpdateVar(Ident, Box<Expr>),
     Print(Box<Expr>),
-    MethodCall(Box<Expr>, Vec<Expr>),
+    FunctionCall(Box<Expr>, Vec<Expr>),
     Get(Box<Expr>, Box<Expr>),
     Set(Box<Expr>, Ident, Box<Expr>),
     Return(Option<Box<Expr>>),
@@ -75,8 +75,8 @@ impl Display for ExprKind {
             Self::InitVar(ident, expr) => write!(f, "{ident} equals {expr}"),
             Self::UpdateVar(ident, expr) => write!(f, "updating {ident} to {expr}"),
             Self::Print(expr) => write!(f, "printing {expr}"),
-            Self::MethodCall(ident, args) => {
-                write!(f, "calling fun {ident} with args: {args:?}")
+            Self::FunctionCall(ident, args) => {
+                write!(f, "calling function '{ident}' with args: {args:?}")
             }
             Self::Get(inst, prop) => write!(f, "(get class: {inst}; property: {prop})"),
             Self::Set(inst, prop, expr) => {

@@ -1,9 +1,9 @@
 use lox_shared::error::LoxError;
 
 use crate::{
-    ast::{Attribute, ClassItem, FunSig, Function, Ident, Item, ItemKind},
+    ast::{Attribute, ClassItem, Expr, ExprKind, FunSig, Function, Ident, Item, ItemKind},
     parser::{
-        Parser,
+        Parser, syntax_error,
         token::{ReservedWord, TokenKind},
     },
 };
@@ -94,5 +94,38 @@ impl Parser {
         let body = self.parse_block()?;
 
         Ok(Function { sig, body })
+    }
+    pub fn parse_class_call(&mut self, lhs: Expr) -> Result<Expr, LoxError> {
+        if let TokenKind::Identifier(ident) = self.current_token.kind() {
+            let ident = Ident(ident.clone());
+            let var_expr = Expr::new(ExprKind::Variable(ident.clone()), self.generate_attr());
+            let get_expr = Expr::new(
+                ExprKind::Get(Box::new(lhs.clone()), Box::new(var_expr.clone())),
+                lhs.attr().clone(),
+            );
+            match self.look_ahead(1).kind() {
+                TokenKind::LeftParen => {
+                    self.bump();
+
+                    Ok(self.parse_method_call(get_expr)?)
+                }
+                &TokenKind::Equal => {
+                    self.bump();
+                    self.bump();
+                    let set_expr = Expr::new(
+                        ExprKind::Set(
+                            Box::new(lhs.clone()),
+                            ident.clone(),
+                            Box::new(self.parse_expr(0)?),
+                        ),
+                        self.generate_attr(),
+                    );
+                    Ok(set_expr)
+                }
+                _ => Ok(get_expr),
+            }
+        } else {
+            Err(syntax_error(lhs.attr(), "incorrect dot notation"))
+        }
     }
 }

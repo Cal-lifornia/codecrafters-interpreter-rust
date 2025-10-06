@@ -42,8 +42,7 @@ impl<'a> Resolver<'a> {
                     )));
                 }
                 Some(true) => {
-                    #[cfg(debug_assertions)]
-                    println!("inserted {ident} with id {id} with scope num {idx}",);
+                    tracing::debug!("inserted {ident} with id {id} with scope num {idx}");
 
                     self.interpreter.locals.insert(id, idx);
                     break;
@@ -54,9 +53,9 @@ impl<'a> Resolver<'a> {
             }
         }
 
-        if self.scopes.is_empty() && cfg!(debug_assertions) {
-            println!("Scopes empty when looking for '{ident}'");
-        }
+        // if self.scopes.is_empty() && cfg!(debug_assertions) {
+        //     println!("Scopes empty when looking for '{ident}'");
+        // }
         Ok(())
     }
 
@@ -124,10 +123,16 @@ impl<'a> Resolver<'a> {
                 let ident = &class.ident;
                 self.declare(ident.clone())?;
                 self.define(ident.clone());
+                self.enter_scope();
+
+                self.declare(Ident("this".into()))?;
+                self.define(Ident("this".into()));
+
                 self.in_class = Some(ident.clone());
                 for fun in &class.methods {
                     self.resolve_function(fun)?;
                 }
+                self.exit_scope();
                 self.in_class = None;
                 Ok(())
             }
@@ -184,10 +189,8 @@ impl<'a> Resolver<'a> {
             }
             ExprKind::Variable(ident) => {
                 if ident.0 == "this" {
-                    if let Some(class) = self.in_class.clone()
-                        && self.within_function
-                    {
-                        self.resolve_local(&class, expr.attr().id().clone())?;
+                    if self.in_class.is_some() && self.within_function {
+                        self.resolve_local(ident, expr.attr().id().clone())?;
                     } else {
                         return Err(LoxError::Compile(format!(
                             "{}; keyword 'this' can only be used within class methods",
@@ -209,7 +212,7 @@ impl<'a> Resolver<'a> {
                 self.resolve_expr(sub_expr)?;
             }
             ExprKind::Print(expr) => self.resolve_expr(expr)?,
-            ExprKind::MethodCall(expr, exprs) => {
+            ExprKind::FunctionCall(expr, exprs) => {
                 self.resolve_expr(expr)?;
                 for expr in exprs {
                     self.resolve_expr(expr)?;

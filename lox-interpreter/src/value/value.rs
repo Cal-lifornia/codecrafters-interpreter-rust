@@ -8,7 +8,7 @@ use lox_shared::{SStr, error::LoxError};
 
 use crate::{
     environment::Environment,
-    value::{Class, ClassInstance, Method},
+    value::{Class, ClassInstance},
 };
 
 #[derive(Debug, Clone)]
@@ -17,12 +17,10 @@ pub enum Value {
     Number(f64),
     Boolean(bool),
     Nil,
-    // Variable(Box<Value>),
     Return(Box<Value>),
-    Method(Function, Environment),
+    Function(Method),
     Class(Class),
     ClassInst(ClassInstance),
-    ClassMethod(Method),
 }
 
 impl Value {
@@ -34,10 +32,9 @@ impl Value {
             Self::Nil => false,
             // Self::Variable(val) => val.is_truthy(),
             Self::Return(val) => val.is_truthy(),
-            Self::Method(_, _) => false,
+            Self::Function(_) => false,
             Self::Class(_) => false,
             Self::ClassInst(_) => true,
-            Self::ClassMethod(_) => false,
         }
     }
 
@@ -59,10 +56,9 @@ impl Display for Value {
             Self::Nil => write!(f, "nil"),
             // Self::Variable(val) => write!(f, "{val}"),
             Self::Return(val) => write!(f, "{val}"),
-            Self::Method(fun, _) => write!(f, "<fn {}>", fun.sig.ident),
+            Self::Function(method) => write!(f, "{method}"),
             Self::Class(class) => write!(f, "{}", class),
             Self::ClassInst(class_inst) => write!(f, "{}", class_inst),
-            Self::ClassMethod(method) => write!(f, "{method}"),
         }
     }
 }
@@ -78,10 +74,9 @@ impl Not for Value {
             Value::Nil => Value::Boolean(true),
             // Value::Variable(lox_type) => !(*lox_type),
             Value::Return(lox_type) => !(*lox_type),
-            Value::Method(_, _) => Value::Boolean(false),
+            Value::Function(_) => Value::Boolean(false),
             Value::Class(_) => Value::Boolean(false),
             Value::ClassInst(_) => Value::Boolean(false),
-            Value::ClassMethod(_) => Value::Boolean(false),
         }
     }
 }
@@ -157,5 +152,34 @@ impl Neg for Value {
         } else {
             Err(LoxError::Runtime("Operand must be a number".into()))
         }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct Method {
+    fun: Function,
+    closure: Environment,
+}
+
+impl Method {
+    pub fn new(fun: Function, closure: Environment) -> Self {
+        Self { fun, closure }
+    }
+    pub fn fun(&self) -> &Function {
+        &self.fun
+    }
+
+    pub fn closure(&self) -> &Environment {
+        &self.closure
+    }
+
+    pub fn set_closure(&mut self, closure: Environment) {
+        self.closure = closure;
+    }
+}
+
+impl Display for Method {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "<fn {}>", self.fun.sig.ident)
     }
 }

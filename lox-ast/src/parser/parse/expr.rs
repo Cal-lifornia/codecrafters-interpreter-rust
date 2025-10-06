@@ -1,7 +1,7 @@
 use lox_shared::error::LoxError;
 
 use crate::{
-    ast::{Attribute, BinOp, Expr, ExprKind, Group, Ident, Literal, LogicOp, NodeId, UnaryOp},
+    ast::{Attribute, BinOp, Expr, ExprKind, Group, Ident, Literal, LogicOp, UnaryOp},
     parser::{
         Parser, syntax_error,
         token::{ReservedWord, Token, TokenKind},
@@ -27,41 +27,75 @@ impl Parser {
         assert_eq!(self.current_token, TokenKind::LeftParen);
         self.bump();
 
+        // #[NOTE] method.spellcaster()() == (method.spellcaster())()
+
         let mut inputs: Vec<Expr> = vec![];
-        let out: Expr = loop {
-            if self.current_token == TokenKind::RightParen {
-                let expr = Expr::new(
-                    ExprKind::MethodCall(Box::new(expr.clone()), inputs),
-                    expr.clone().attr().clone(),
-                );
-                if self.look_ahead(1) == TokenKind::LeftParen {
+
+        loop {
+            match self.current_token.kind() {
+                TokenKind::Comma => {
                     self.bump();
-                    break self.parse_method_call(expr)?;
-                } else {
-                    break expr;
-                }
-            }
-            inputs.push(self.parse_expr(0)?);
-            self.bump();
-            if self.current_token == TokenKind::Comma {
-                self.bump();
-                continue;
-            } else {
-                let next = self.look_ahead(1);
-                if next == TokenKind::LeftParen {
-                    self.bump();
-                    if let Some(last) = inputs.pop()
-                        && matches!(last.kind(), ExprKind::Variable(_))
-                    {
-                        inputs.push(self.parse_method_call(last)?);
-                    } else {
-                        return Err(LoxError::Syntax("Invalid expr".into()));
+                    // tracing::debug!("{}", self.current_token);
+                    if matches!(self.current_token.kind(), TokenKind::RightParen) {
+                        return Err(syntax_error(
+                            &self.generate_attr(),
+                            "Comma must be followed up with a function param",
+                        ));
                     }
                 }
+                TokenKind::RightParen => {
+                    let call_expr = Expr::new(
+                        ExprKind::FunctionCall(Box::new(expr.clone()), inputs),
+                        self.generate_attr(),
+                    );
+                    if self.look_ahead(1) == TokenKind::LeftParen {
+                        self.bump();
+                        return self.parse_method_call(call_expr);
+                    } else {
+                        return Ok(call_expr);
+                    }
+                }
+                _ => {
+                    inputs.push(self.parse_expr(0)?);
+                    self.bump();
+                }
             }
-        };
-        assert_eq!(self.current_token, TokenKind::RightParen);
-        Ok(out)
+        }
+
+        // let out: Expr = loop {
+        //     if self.current_token == TokenKind::RightParen {
+        //         if self.look_ahead(1) == TokenKind::LeftParen {
+        //             self.bump();
+        //             let sub_expr = self.parse_method_call(expr)?;
+        //             return Ok(sub_expr);
+        //         } else {
+        //             break expr;
+        //         }
+        //     }
+        //     inputs.push(self.parse_expr(0)?);
+        //     self.bump();
+        //     if self.current_token == TokenKind::Comma {
+        //         self.bump();
+        //         continue;
+        //     } else {
+        //         let next = self.look_ahead(1);
+        //         if next == TokenKind::LeftParen {
+        //             self.bump();
+        //             if let Some(last) = inputs.pop()
+        //                 && matches!(last.kind(), ExprKind::Variable(_))
+        //             {
+        //                 inputs.push(self.parse_method_call(last)?);
+        //             } else {
+        //                 return Err(LoxError::Syntax("Invalid expr".into()));
+        //             }
+        //         }
+        //     }
+        // };
+        // assert_eq!(self.current_token, TokenKind::RightParen);
+        // Ok(Expr::new(
+        //     ExprKind::FunctionCall(Box::new(out.clone()), inputs),
+        //     out.attr().clone(),
+        // ))
     }
 
     pub fn parse_expr(&mut self, min_bp: u8) -> Result<Expr, LoxError> {
@@ -174,15 +208,18 @@ impl Parser {
                 self.bump(); // Bump past op
                 self.bump(); // Bump to update current token for parse
 
-                let rhs = self.parse_expr(r_bp)?;
-                lhs = op.create_expression(lhs, rhs, self.new_node_id())?;
+                lhs = op.create_expression(self, lhs, r_bp)?;
             } else if matches!(
                 next.kind(),
                 TokenKind::EOF | TokenKind::RightParen | TokenKind::Semicolon | TokenKind::Comma
             ) {
                 break;
             } else {
-                return Err(syntax_error(lhs.attr(), format!("invalid token: {}", next)));
+                return Err(LoxError::Runtime(format!(
+                    "{}: invalid token: {}",
+                    lhs.attr().as_display(),
+                    next,
+                )));
             }
         }
         Ok(lhs)
@@ -206,36 +243,31 @@ impl BindingOp {
             BindingOp::Dot => (10, 9),
         }
     }
-    fn create_expression(&self, left: Expr, right: Expr, id: NodeId) -> Result<Expr, LoxError> {
-        let attr = Attribute::new(id, left.attr().span().clone());
+    fn create_expression(
+        &self,
+        parser: &mut Parser,
+        left: Expr,
+        min_bp: u8,
+    ) -> Result<Expr, LoxError> {
+        let attr = Attribute::new(parser.new_node_id(), left.attr().span().clone());
         match self {
             BindingOp::Bin(op) => Ok(Expr::new(
-                ExprKind::Arithmetic(op.clone(), Box::new(left), Box::new(right)),
+                ExprKind::Arithmetic(
+                    op.clone(),
+                    Box::new(left),
+                    Box::new(parser.parse_expr(min_bp)?),
+                ),
                 attr,
             )),
             BindingOp::Logic(op) => Ok(Expr::new(
-                ExprKind::Conditional(op.clone(), Box::new(left), Box::new(right)),
+                ExprKind::Conditional(
+                    op.clone(),
+                    Box::new(left),
+                    Box::new(parser.parse_expr(min_bp)?),
+                ),
                 attr,
             )),
-            BindingOp::Dot => {
-                if matches!(
-                    left.kind(),
-                    ExprKind::Variable(_) | ExprKind::MethodCall(_, _)
-                ) {
-                    match right.kind {
-                        ExprKind::Variable(_) | ExprKind::MethodCall(_, _) => Ok(Expr::new(
-                            ExprKind::Get(Box::new(left), Box::new(right)),
-                            attr,
-                        )),
-                        ExprKind::UpdateVar(prop, expr) => {
-                            Ok(Expr::new(ExprKind::Set(Box::new(left), prop, expr), attr))
-                        }
-                        _ => Err(syntax_error(&attr, "Incorrect dot notation syntax")),
-                    }
-                } else {
-                    Err(syntax_error(&attr, "Incorrect dot notation syntax"))
-                }
-            }
+            BindingOp::Dot => parser.parse_class_call(left),
         }
     }
     fn unary_binding_power() -> u8 {
