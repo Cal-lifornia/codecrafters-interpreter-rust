@@ -61,41 +61,6 @@ impl Parser {
                 }
             }
         }
-
-        // let out: Expr = loop {
-        //     if self.current_token == TokenKind::RightParen {
-        //         if self.look_ahead(1) == TokenKind::LeftParen {
-        //             self.bump();
-        //             let sub_expr = self.parse_method_call(expr)?;
-        //             return Ok(sub_expr);
-        //         } else {
-        //             break expr;
-        //         }
-        //     }
-        //     inputs.push(self.parse_expr(0)?);
-        //     self.bump();
-        //     if self.current_token == TokenKind::Comma {
-        //         self.bump();
-        //         continue;
-        //     } else {
-        //         let next = self.look_ahead(1);
-        //         if next == TokenKind::LeftParen {
-        //             self.bump();
-        //             if let Some(last) = inputs.pop()
-        //                 && matches!(last.kind(), ExprKind::Variable(_))
-        //             {
-        //                 inputs.push(self.parse_method_call(last)?);
-        //             } else {
-        //                 return Err(LoxError::Syntax("Invalid expr".into()));
-        //             }
-        //         }
-        //     }
-        // };
-        // assert_eq!(self.current_token, TokenKind::RightParen);
-        // Ok(Expr::new(
-        //     ExprKind::FunctionCall(Box::new(out.clone()), inputs),
-        //     out.attr().clone(),
-        // ))
     }
 
     pub fn parse_expr(&mut self, min_bp: u8) -> Result<Expr, LoxError> {
@@ -163,10 +128,7 @@ impl Parser {
                             Expr::new(ExprKind::Return(Some(Box::new(self.parse_expr(0)?))), attr)
                         }
                     }
-                    ReservedWord::This => Expr::new(
-                        ExprKind::Variable(Ident(std::borrow::Cow::Borrowed("this"))),
-                        attr,
-                    ),
+                    ReservedWord::This => Expr::new(ExprKind::This, attr),
                     _ => todo!(),
                 },
                 TokenKind::Identifier(ident) => {

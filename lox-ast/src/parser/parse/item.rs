@@ -95,6 +95,7 @@ impl Parser {
 
         Ok(Function { sig, body })
     }
+
     pub fn parse_class_call(&mut self, lhs: Expr) -> Result<Expr, LoxError> {
         if let TokenKind::Identifier(ident) = self.current_token.kind() {
             let ident = Ident(ident.clone());

@@ -1,7 +1,7 @@
 use std::{cell::RefCell, fmt::Display, rc::Rc};
 
 use hashbrown::HashMap;
-use lox_ast::ast::{ClassItem, Ident};
+use lox_ast::ast::{ClassItem, Expr, Function, Ident};
 use lox_shared::error::LoxError;
 
 use crate::{
@@ -86,6 +86,7 @@ impl ClassInstance {
         }
         inst
     }
+
     pub fn class(&self) -> Rc<RefCell<Class>> {
         self.0.clone()
     }

@@ -187,20 +187,7 @@ impl<'a> Resolver<'a> {
                 self.resolve_expr(left)?;
                 self.resolve_expr(right)?;
             }
-            ExprKind::Variable(ident) => {
-                if ident.0 == "this" {
-                    if self.in_class.is_some() && self.within_function {
-                        self.resolve_local(ident, expr.attr().id().clone())?;
-                    } else {
-                        return Err(LoxError::Compile(format!(
-                            "{}; keyword 'this' can only be used within class methods",
-                            expr.attr().as_display()
-                        )));
-                    }
-                } else {
-                    self.resolve_local(ident, expr.attr().id().clone())?
-                }
-            }
+            ExprKind::Variable(ident) => self.resolve_local(ident, expr.attr().id().clone())?,
             ExprKind::InitVar(ident, sub_expr) => {
                 self.declare(ident.clone())?;
                 self.resolve_expr(sub_expr)?;
@@ -234,6 +221,16 @@ impl<'a> Resolver<'a> {
                 } else {
                     return Err(LoxError::Compile(format!(
                         "{}; Error at 'return': Can't return from non-function scopes",
+                        expr.attr().as_display()
+                    )));
+                }
+            }
+            ExprKind::This => {
+                if self.in_class.is_some() && self.within_function {
+                    self.resolve_local(&Ident("this".into()), expr.attr().id().clone())?;
+                } else {
+                    return Err(LoxError::Compile(format!(
+                        "{}; keyword 'this' can only be used within class methods",
                         expr.attr().as_display()
                     )));
                 }

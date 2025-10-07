@@ -1,4 +1,4 @@
-use lox_ast::ast::{BinOp, Expr, ExprKind, Literal, LogicOp, UnaryOp};
+use lox_ast::ast::{BinOp, Expr, ExprKind, Ident, Literal, LogicOp, UnaryOp};
 use lox_shared::error::LoxError;
 
 use crate::{
@@ -151,9 +151,28 @@ impl Interpreter {
                 } else {
                     match self.evaluate_expr(expr)? {
                         Some(Value::Function(method)) => self.run_function(&method, args),
-                        Some(Value::Class(class)) => Ok(Some(Value::ClassInst(
-                            ClassInstance::new(self.capture_env(), class),
-                        ))),
+                        Some(Value::ClassInit((method, inst))) => {
+                            self.run_function(&method, args)?;
+                            Ok(Some(Value::ClassInst(inst)))
+                        }
+                        Some(Value::Class(class)) => {
+                            let inst = ClassInstance::new(self.capture_env(), class);
+                            let init = inst
+                                .class()
+                                .borrow()
+                                .get_method(&lox_ast::ast::Ident("init".into()))
+                                .cloned();
+                            if let Some(init) = init {
+                                self.run_function(&init, args)?;
+                            } else if !args.is_empty() {
+                                return Err(runtime_err(
+                                    expr.attr(),
+                                    "Function params found despite class having no 'init()' method",
+                                ));
+                            }
+
+                            Ok(Some(Value::ClassInst(inst)))
+                        }
 
                         out => {
                             tracing::debug!("other function call {out:#?}");
@@ -171,17 +190,20 @@ impl Interpreter {
             }
             ExprKind::Get(left, right) => {
                 tracing::debug!("running get; left: {left}; right: {right}");
+                let left_val = self.evaluate_expr(left)?;
 
-                if let Some(Value::ClassInst(inst)) = self.evaluate_expr(left)? {
+                if let Some(Value::ClassInst(inst)) = left_val {
                     match right.kind() {
                         ExprKind::Variable(prop) => {
                             let res = inst.class().borrow().properties.get(prop).cloned();
                             if res.is_none() {
-                                let res = inst
-                                    .class()
-                                    .borrow()
-                                    .get_method(prop)
-                                    .map(|method| Value::Function(method.clone()));
+                                let res = inst.class().borrow().get_method(prop).map(|method| {
+                                    if method.fun().sig.ident.0 == "init" {
+                                        Value::ClassInit((method.clone(), inst.clone()))
+                                    } else {
+                                        Value::Function(method.clone())
+                                    }
+                                });
                                 if res.is_none() {
                                     Err(runtime_err(right.attr(), "found no class property"))
                                 } else {
@@ -193,7 +215,13 @@ impl Interpreter {
                         }
                         ExprKind::FunctionCall(expr, args) => {
                             if let Some(Value::Function(method)) = self.evaluate_expr(expr)? {
-                                self.run_function(&method, args)
+                                tracing::debug!("method ident: {}", method.fun().sig.ident.0);
+                                if method.fun().sig.ident.0 == "init" {
+                                    self.run_function(&method, args)?;
+                                    Ok(Some(Value::ClassInst(inst)))
+                                } else {
+                                    self.run_function(&method, args)
+                                }
                             } else {
                                 Err(runtime_err(
                                     right.attr(),
@@ -207,17 +235,24 @@ impl Interpreter {
                         )),
                     }
                 } else {
-                    Err(LoxError::Runtime(format!(
+                    tracing::debug!("left: {left_val:#?}");
+                    Err(runtime_err(
+                        left.attr(),
                         "{}; (get) only classes have fields",
-                        left.attr().as_display()
-                    )))
+                    ))
                 }
             }
             ExprKind::Set(expr, prop, sub_expr) => {
                 if let Some(val) = self.evaluate_expr(sub_expr)? {
                     let ret = self.evaluate_expr(expr)?;
                     if let Some(Value::ClassInst(inst)) = ret {
-                        inst.class().borrow_mut().set(prop, val)?;
+                        match inst.class().try_borrow_mut() {
+                            Ok(mut class) => class.set(prop, val)?,
+                            Err(err) => {
+                                tracing::debug!("{}", err.to_string());
+                                panic!("Error borrowing class inst as mut")
+                            }
+                        };
                         Ok(None)
                     } else {
                         Err(LoxError::Runtime(format!(
@@ -238,6 +273,7 @@ impl Interpreter {
                     .map(|val| Value::Return(Box::new(val)))),
                 None => Ok(Some(Value::Return(Box::new(Value::Nil)))),
             },
+            ExprKind::This => Ok(self.find(&Ident("this".into()), expr.id())),
         }
     }
 }

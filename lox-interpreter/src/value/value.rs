@@ -21,6 +21,7 @@ pub enum Value {
     Function(Method),
     Class(Class),
     ClassInst(ClassInstance),
+    ClassInit(ClassInitialiser),
 }
 
 impl Value {
@@ -35,6 +36,7 @@ impl Value {
             Self::Function(_) => false,
             Self::Class(_) => false,
             Self::ClassInst(_) => true,
+            Self::ClassInit(_) => false,
         }
     }
 
@@ -59,6 +61,7 @@ impl Display for Value {
             Self::Function(method) => write!(f, "{method}"),
             Self::Class(class) => write!(f, "{}", class),
             Self::ClassInst(class_inst) => write!(f, "{}", class_inst),
+            Self::ClassInit((method, _)) => write!(f, "{method}"),
         }
     }
 }
@@ -77,6 +80,7 @@ impl Not for Value {
             Value::Function(_) => Value::Boolean(false),
             Value::Class(_) => Value::Boolean(false),
             Value::ClassInst(_) => Value::Boolean(false),
+            Value::ClassInit(_) => Value::Boolean(false),
         }
     }
 }
@@ -183,3 +187,5 @@ impl Display for Method {
         write!(f, "<fn {}>", self.fun.sig.ident)
     }
 }
+
+pub type ClassInitialiser = (Method, ClassInstance);

@@ -58,6 +58,7 @@ pub enum ExprKind {
     Get(Box<Expr>, Box<Expr>),
     Set(Box<Expr>, Ident, Box<Expr>),
     Return(Option<Box<Expr>>),
+    This,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -86,6 +87,7 @@ impl Display for ExprKind {
                 Some(expr) => write!(f, "(return {expr})"),
                 None => write!(f, "blank return"),
             },
+            Self::This => write!(f, "this"),
         }
     }
 }
