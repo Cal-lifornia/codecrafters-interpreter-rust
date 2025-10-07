@@ -4,6 +4,7 @@ use lox_shared::error::LoxError;
 use crate::{
     Interpreter,
     eval::EvalResult,
+    runtime_err,
     value::{Class, Method, Value},
 };
 
@@ -19,7 +20,19 @@ impl Interpreter {
                 Ok(())
             }
             ItemKind::Class(class_item) => {
-                let class = Class::new(class_item);
+                let super_class = if let Some(ident) = &class_item.super_class {
+                    if let Some(Value::Class(class)) = self.find(ident, item.attr().id()) {
+                        Some(Box::new(class.clone()))
+                    } else {
+                        return Err(runtime_err(
+                            item.attr(),
+                            format!("Could not find class {ident}"),
+                        ));
+                    }
+                } else {
+                    None
+                };
+                let class = Class::new(class_item, super_class);
                 self.insert(class_item.ident.clone(), Value::Class(class));
                 Ok(())
             }

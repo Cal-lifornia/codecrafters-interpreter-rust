@@ -14,6 +14,7 @@ pub struct Class {
     ident: Ident,
     methods: HashMap<Ident, Method>,
     pub properties: HashMap<Ident, Value>,
+    super_class: Option<Box<Class>>,
 }
 
 impl PartialEq for Class {
@@ -23,7 +24,7 @@ impl PartialEq for Class {
 }
 
 impl Class {
-    pub fn new(class_item: &ClassItem) -> Self {
+    pub fn new(class_item: &ClassItem, super_class: Option<Box<Class>>) -> Self {
         let mut methods = HashMap::new();
         for method in &class_item.methods {
             methods.insert(
@@ -35,6 +36,7 @@ impl Class {
             ident: class_item.ident.clone(),
             methods,
             properties: HashMap::new(),
+            super_class,
         }
     }
 
@@ -43,7 +45,16 @@ impl Class {
     }
 
     pub fn get_method(&self, ident: &Ident) -> Option<&Method> {
-        self.methods.get(ident)
+        let res = self.methods.get(ident);
+        if res.is_none() {
+            if let Some(class) = &self.super_class {
+                class.get_method(ident)
+            } else {
+                None
+            }
+        } else {
+            res
+        }
     }
 
     pub fn set(&mut self, ident: &Ident, val: Value) -> Result<(), LoxError> {
@@ -84,7 +95,14 @@ impl ClassInstance {
         for (_, method) in inst.0.borrow_mut().methods.iter_mut() {
             method.set_closure(closure.clone());
         }
-        inst
+        let mut current_class = &mut inst.0.borrow_mut().super_class;
+        while let Some(super_class) = current_class {
+            for (_, method) in super_class.methods.iter_mut() {
+                method.set_closure(closure.clone());
+            }
+            current_class = &mut super_class.super_class;
+        }
+        inst.clone()
     }
 
     pub fn class(&self) -> Rc<RefCell<Class>> {
