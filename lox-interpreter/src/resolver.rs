@@ -10,7 +10,8 @@ pub struct Resolver<'a> {
     interpreter: &'a mut Interpreter,
     pub scopes: Vec<HashMap<Ident, bool>>,
     within_function: bool,
-    in_class: Option<Ident>,
+    within_initialiser: bool,
+    in_class: bool,
 }
 
 impl<'a> Resolver<'a> {
@@ -19,7 +20,8 @@ impl<'a> Resolver<'a> {
             interpreter,
             scopes: vec![],
             within_function: false,
-            in_class: None,
+            in_class: false,
+            within_initialiser: false,
         }
     }
 }
@@ -128,12 +130,12 @@ impl<'a> Resolver<'a> {
                 self.declare(Ident("this".into()))?;
                 self.define(Ident("this".into()));
 
-                self.in_class = Some(ident.clone());
+                self.in_class = true;
                 for fun in &class.methods {
                     self.resolve_function(fun)?;
                 }
                 self.exit_scope();
-                self.in_class = None;
+                self.in_class = false;
                 Ok(())
             }
         }
@@ -141,6 +143,9 @@ impl<'a> Resolver<'a> {
 
     pub fn resolve_function(&mut self, fun: &Function) -> Result<(), LoxError> {
         let already_in_function = self.within_function;
+        if fun.sig.ident.0 == "init" {
+            self.within_initialiser = true;
+        }
         self.declare(fun.sig.ident.clone())?;
         self.define(fun.sig.ident.clone());
         self.within_function = true;
@@ -153,6 +158,9 @@ impl<'a> Resolver<'a> {
         self.exit_scope();
         if !already_in_function {
             self.within_function = false;
+        }
+        if fun.sig.ident.0 == "init" {
+            self.within_initialiser = false;
         }
         Ok(())
     }
@@ -216,6 +224,12 @@ impl<'a> Resolver<'a> {
             ExprKind::Return(opt) => {
                 if self.within_function {
                     if let Some(val) = opt {
+                        if self.within_initialiser {
+                            return Err(LoxError::Compile(format!(
+                                "{}; Return statements must be empty within Class initialisers",
+                                expr.attr().as_display()
+                            )));
+                        }
                         self.resolve_expr(val)?
                     }
                 } else {
@@ -226,7 +240,7 @@ impl<'a> Resolver<'a> {
                 }
             }
             ExprKind::This => {
-                if self.in_class.is_some() && self.within_function {
+                if self.in_class && self.within_function {
                     self.resolve_local(&Ident("this".into()), expr.attr().id().clone())?;
                 } else {
                     return Err(LoxError::Compile(format!(
