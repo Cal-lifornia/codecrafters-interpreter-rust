@@ -60,11 +60,16 @@ impl Function {
 pub struct ClassItem {
     pub ident: Ident,
     pub methods: Vec<Function>,
+    pub super_class: Option<Ident>,
 }
 
 impl ClassItem {
-    pub fn new(ident: Ident, methods: Vec<Function>) -> Self {
-        Self { ident, methods }
+    pub fn new(ident: Ident, methods: Vec<Function>, super_class: Option<Ident>) -> Self {
+        Self {
+            ident,
+            methods,
+            super_class,
+        }
     }
 }
 

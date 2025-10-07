@@ -14,33 +14,7 @@ impl Parser {
         match self.current_token.kind() {
             TokenKind::Reserved(ReservedWord::Class) => {
                 self.bump();
-                let Some(ident) = Ident::from_token(&self.current_token) else {
-                    return Err(LoxError::Syntax(format!(
-                        "Expecting class identifier, got {}",
-                        self.current_token
-                    )));
-                };
-                self.bump();
-                assert_eq!(self.current_token.kind(), &TokenKind::LeftBrace);
-                // Bumped past left brace for Class contents
-                self.bump();
-                let mut methods = Vec::new();
-                loop {
-                    if matches!(self.look_ahead(1).kind(), TokenKind::LeftParen)
-                        && matches!(self.current_token.kind(), TokenKind::Identifier(_))
-                    {
-                        methods.push(self.parse_function()?);
-                    } else if self.current_token == TokenKind::RightBrace {
-                        break;
-                    }
-                }
-
-                assert_eq!(self.current_token.kind(), &TokenKind::RightBrace);
-                self.bump();
-                Ok(Item::new(
-                    ItemKind::Class(ClassItem::new(ident, methods)),
-                    attr,
-                ))
+                Ok(Item::new(ItemKind::Class(self.parse_class()?), attr))
             }
             TokenKind::Reserved(ReservedWord::Fun) => {
                 self.bump();
@@ -51,6 +25,47 @@ impl Parser {
             }
             _ => unreachable!(),
         }
+    }
+    fn parse_class(&mut self) -> Result<ClassItem, LoxError> {
+        let Some(ident) = Ident::from_token(&self.current_token) else {
+            return Err(LoxError::Syntax(format!(
+                "Expecting class identifier, got {}",
+                self.current_token
+            )));
+        };
+        self.bump();
+
+        let super_class = if self.current_token == TokenKind::Less {
+            self.bump();
+            let Some(super_class) = Ident::from_token(&self.current_token) else {
+                return Err(LoxError::Syntax(format!(
+                    "Expecting super class identifier, got {}",
+                    self.current_token
+                )));
+            };
+            self.bump();
+            Some(super_class)
+        } else {
+            None
+        };
+
+        assert_eq!(self.current_token.kind(), &TokenKind::LeftBrace);
+        // Bumped past left brace for Class contents
+        self.bump();
+        let mut methods = Vec::new();
+        loop {
+            if matches!(self.look_ahead(1).kind(), TokenKind::LeftParen)
+                && matches!(self.current_token.kind(), TokenKind::Identifier(_))
+            {
+                methods.push(self.parse_function()?);
+            } else if self.current_token == TokenKind::RightBrace {
+                break;
+            }
+        }
+
+        assert_eq!(self.current_token.kind(), &TokenKind::RightBrace);
+        self.bump();
+        Ok(ClassItem::new(ident, methods, super_class))
     }
     pub fn parse_fun_sig(&mut self, ident: Ident) -> Result<FunSig, LoxError> {
         assert_eq!(self.current_token, TokenKind::LeftParen);

@@ -125,6 +125,11 @@ impl<'a> Resolver<'a> {
                 let ident = &class.ident;
                 self.declare(ident.clone())?;
                 self.define(ident.clone());
+
+                if let Some(super_class) = &class.super_class {
+                    self.resolve_local(super_class, item.attr().id().clone())?;
+                }
+
                 self.enter_scope();
 
                 self.declare(Ident("this".into()))?;

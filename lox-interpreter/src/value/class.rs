@@ -1,7 +1,7 @@
 use std::{cell::RefCell, fmt::Display, rc::Rc};
 
 use hashbrown::HashMap;
-use lox_ast::ast::{ClassItem, Expr, Function, Ident};
+use lox_ast::ast::{ClassItem, Ident};
 use lox_shared::error::LoxError;
 
 use crate::{
