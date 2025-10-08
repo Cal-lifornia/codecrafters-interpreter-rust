@@ -129,7 +129,15 @@ impl Parser {
                         }
                     }
                     ReservedWord::This => Expr::new(ExprKind::This, attr),
-                    ReservedWord::Super => Expr::new(ExprKind::Super, attr),
+                    ReservedWord::Super => {
+                        if self.look_ahead(1) != TokenKind::Dot {
+                            return Err(syntax_error(
+                                &attr,
+                                "Keyword 'super' must be followed up with dot syntax",
+                            ));
+                        }
+                        Expr::new(ExprKind::Super, attr)
+                    }
                     _ => todo!(),
                 },
                 TokenKind::Identifier(ident) => {

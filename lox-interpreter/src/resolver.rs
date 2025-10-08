@@ -14,7 +14,8 @@ pub struct Resolver<'a> {
     pub scopes: Vec<HashMap<Ident, bool>>,
     within_function: bool,
     within_initialiser: bool,
-    in_class: bool,
+    within_class: bool,
+    within_subclass: bool,
 }
 
 impl<'a> Resolver<'a> {
@@ -23,8 +24,9 @@ impl<'a> Resolver<'a> {
             interpreter,
             scopes: vec![],
             within_function: false,
-            in_class: false,
+            within_class: false,
             within_initialiser: false,
+            within_subclass: false,
         }
     }
 }
@@ -136,6 +138,7 @@ impl<'a> Resolver<'a> {
                         ));
                     }
                     self.resolve_local(super_class, item.attr().id().clone())?;
+                    self.within_subclass = true;
                 }
 
                 self.define(ident.clone());
@@ -148,12 +151,16 @@ impl<'a> Resolver<'a> {
                 self.declare(Ident("super".into()))?;
                 self.define(Ident("super".into()));
 
-                self.in_class = true;
+                self.within_class = true;
                 for fun in &class.methods {
                     self.resolve_function(fun)?;
                 }
                 self.exit_scope();
-                self.in_class = false;
+                self.within_class = false;
+
+                if self.within_subclass {
+                    self.within_subclass = false;
+                }
                 Ok(())
             }
         }
@@ -258,7 +265,7 @@ impl<'a> Resolver<'a> {
                 }
             }
             ExprKind::This => {
-                if self.in_class && self.within_function {
+                if self.within_class && self.within_function {
                     self.resolve_local(&Ident("this".into()), expr.attr().id().clone())?;
                 } else {
                     return Err(LoxError::Compile(format!(
@@ -268,7 +275,7 @@ impl<'a> Resolver<'a> {
                 }
             }
             ExprKind::Super => {
-                if self.in_class && self.within_function {
+                if self.within_subclass && self.within_function {
                     self.resolve_local(&Ident("super".into()), expr.attr().id().clone())?;
                 } else {
                     return Err(LoxError::Compile(format!(
