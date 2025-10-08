@@ -1,6 +1,9 @@
+use std::fmt::Display;
+
 use hashbrown::HashMap;
 use lox_ast::ast::{
-    Block, ControlFlowStmt, Expr, ExprKind, Function, Ident, Item, ItemKind, NodeId, Stmt, StmtKind,
+    Attribute, Block, ControlFlowStmt, Expr, ExprKind, Function, Ident, Item, ItemKind, NodeId,
+    Stmt, StmtKind,
 };
 use lox_shared::error::LoxError;
 
@@ -124,11 +127,18 @@ impl<'a> Resolver<'a> {
             ItemKind::Class(class) => {
                 let ident = &class.ident;
                 self.declare(ident.clone())?;
-                self.define(ident.clone());
 
                 if let Some(super_class) = &class.super_class {
+                    if ident == super_class {
+                        return Err(compile_error(
+                            item.attr(),
+                            "Can't use own class as super class",
+                        ));
+                    }
                     self.resolve_local(super_class, item.attr().id().clone())?;
                 }
+
+                self.define(ident.clone());
 
                 self.enter_scope();
 
@@ -257,4 +267,8 @@ impl<'a> Resolver<'a> {
         }
         Ok(())
     }
+}
+
+fn compile_error(attr: &Attribute, out: impl Display) -> LoxError {
+    LoxError::Compile(format!("{}; {out}", attr.as_display()))
 }
