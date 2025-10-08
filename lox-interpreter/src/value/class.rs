@@ -92,16 +92,35 @@ impl ClassInstance {
         let inst = Self(Rc::new(RefCell::new(class)));
         closure.enter_scope();
         closure.insert(Ident("this".into()), Value::ClassInst(inst.clone()));
+
+        let closure_backup = closure.clone();
+
+        if let Some(super_class) = &inst.0.borrow().super_class {
+            closure.insert(
+                Ident("super".into()),
+                Value::ClassInst(Self(Rc::new(RefCell::new(*super_class.clone())))),
+            );
+        }
+
         for (_, method) in inst.0.borrow_mut().methods.iter_mut() {
             method.set_closure(closure.clone());
         }
+
         let mut current_class = &mut inst.0.borrow_mut().super_class;
         while let Some(super_class) = current_class {
+            let mut super_closure = closure_backup.clone();
+            if let Some(super_super) = &super_class.super_class {
+                super_closure.insert(
+                    Ident("super".into()),
+                    Value::ClassInst(Self(Rc::new(RefCell::new(*super_super.clone())))),
+                );
+            }
             for (_, method) in super_class.methods.iter_mut() {
-                method.set_closure(closure.clone());
+                method.set_closure(super_closure.clone());
             }
             current_class = &mut super_class.super_class;
         }
+
         inst.clone()
     }
 

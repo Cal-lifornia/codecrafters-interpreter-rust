@@ -274,6 +274,7 @@ impl Interpreter {
                 None => Ok(Some(Value::Return(Box::new(Value::Nil)))),
             },
             ExprKind::This => Ok(self.find(&Ident("this".into()), expr.id())),
+            ExprKind::Super => Ok(self.find(&Ident("super".into()), expr.id())),
         }
     }
 }

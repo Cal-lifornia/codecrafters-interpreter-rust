@@ -129,6 +129,7 @@ impl Parser {
                         }
                     }
                     ReservedWord::This => Expr::new(ExprKind::This, attr),
+                    ReservedWord::Super => Expr::new(ExprKind::Super, attr),
                     _ => todo!(),
                 },
                 TokenKind::Identifier(ident) => {

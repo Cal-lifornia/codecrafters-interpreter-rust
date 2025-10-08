@@ -145,6 +145,9 @@ impl<'a> Resolver<'a> {
                 self.declare(Ident("this".into()))?;
                 self.define(Ident("this".into()));
 
+                self.declare(Ident("super".into()))?;
+                self.define(Ident("super".into()));
+
                 self.in_class = true;
                 for fun in &class.methods {
                     self.resolve_function(fun)?;
@@ -260,6 +263,16 @@ impl<'a> Resolver<'a> {
                 } else {
                     return Err(LoxError::Compile(format!(
                         "{}; keyword 'this' can only be used within class methods",
+                        expr.attr().as_display()
+                    )));
+                }
+            }
+            ExprKind::Super => {
+                if self.in_class && self.within_function {
+                    self.resolve_local(&Ident("super".into()), expr.attr().id().clone())?;
+                } else {
+                    return Err(LoxError::Compile(format!(
+                        "{}; keyword 'super' can only be used within class methods",
                         expr.attr().as_display()
                     )));
                 }
